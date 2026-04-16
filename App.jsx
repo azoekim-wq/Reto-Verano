@@ -47,17 +47,22 @@ export default function App() {
   const [inputHeight, setInputHeight] = useState('');
 
   useEffect(() => {
-    signInAnonymously(auth).catch(() => {});
+    signInAnonymously(auth).catch((err) => console.error("Auth fail:", err));
     return onAuthStateChanged(auth, setUser);
   }, []);
 
   useEffect(() => {
     if (!user) return;
-    return onSnapshot(collection(db, 'retos', appId, 'participantes'), (snap) => {
+    const participantsRef = collection(db, 'retos', appId, 'participantes');
+    const unsubscribe = onSnapshot(participantsRef, (snap) => {
       const data = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
       setParticipants(data.sort((a,b) => (parseInt(a.id?.replace('p','')) || 0) - (parseInt(b.id?.replace('p','')) || 0)));
       setLoading(false);
+    }, (err) => {
+      console.error("Snapshot error:", err);
+      setLoading(false);
     });
+    return () => unsubscribe();
   }, [user]);
 
   const showToast = (msg) => {
@@ -72,7 +77,8 @@ export default function App() {
     if (idx >= 0) newData[idx] = { ...newData[idx], [field]: numValue };
     else newData.push({ week: weekNum, [field]: numValue });
 
-    await updateDoc(doc(db, 'retos', appId, 'participantes', p.docId || p.id), { 
+    const docRef = doc(db, 'retos', appId, 'participantes', p.docId || p.id);
+    await updateDoc(docRef, { 
       weeklyData: newData.filter(w => Object.keys(w).length > 1).sort((a,b)=>a.week-b.week) 
     });
     showToast('Guardado ✓');
@@ -83,12 +89,13 @@ export default function App() {
     const payload = { name: inputName, gender: inputGender, age: parseInt(inputAge), height: parseFloat(inputHeight) };
     const id = modalState.type === 'add' ? `p${Date.now()}` : modalState.data.docId;
     
-    if (modalState.type === 'delete') await deleteDoc(doc(db, 'retos', appId, 'participantes', id));
-    else if (modalState.type === 'add') await setDoc(doc(db, 'retos', appId, 'participantes', id), { id, color: COLORS[participants.length % COLORS.length], weeklyData: [], ...payload });
-    else await updateDoc(doc(db, 'retos', appId, 'participantes', id), payload);
-    
-    setModalState({ isOpen: false });
-    showToast('¡Éxito! ✨');
+    try {
+      if (modalState.type === 'delete') await deleteDoc(doc(db, 'retos', appId, 'participantes', id));
+      else if (modalState.type === 'add') await setDoc(doc(db, 'retos', appId, 'participantes', id), { id, color: COLORS[participants.length % COLORS.length], weeklyData: [], ...payload });
+      else await updateDoc(doc(db, 'retos', appId, 'participantes', id), payload);
+      setModalState({ isOpen: false });
+      showToast('¡Éxito! ✨');
+    } catch (e) { showToast('Error ❌'); }
   };
 
   const rankingData = useMemo(() => {
@@ -106,21 +113,22 @@ export default function App() {
       let maxS = 0, currS = 0, pW = first.weight, pF = bfp1;
       sorted.slice(sorted.indexOf(first)+1).forEach(w => {
         const b = calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip);
-        let imp = false;
-        if (w.weight && pW && w.weight < pW) imp = true;
-        if (b && pF && b < pF) imp = true;
+        let improved = false;
+        if (w.weight && pW && w.weight < pW) improved = true;
+        if (b && pF && b < pF) improved = true;
 
-        if (imp) { currS++; maxS = Math.max(maxS, currS); }
+        if (improved) { currS++; maxS = Math.max(maxS, currS); }
         else if (w.weight || b) currS = 0;
         if (w.weight) pW = w.weight; if (b) pF = b;
       });
 
-      return { ...p, wLoss, fLoss, maxS, score: ((wLoss * 2) + (fLoss * 3) + (maxS * 2)).toFixed(1) };
+      const scoreCalc = (wLoss * 2) + (fLoss * 3) + (maxS * 2);
+      return { ...p, wLoss, fLoss, maxS, score: scoreCalc.toFixed(1) };
     }).filter(p => !p.isUnranked).sort((a,b) => b.score - a.score);
     return { ranked, unranked: participants.filter(p => !ranked.find(r => r.id === p.id)) };
   }, [participants]);
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-slate-300 animate-pulse text-2xl tracking-tighter italic uppercase">Sincronizando Reto...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-slate-300 animate-pulse text-2xl tracking-tighter italic uppercase text-center p-10">Sincronizando con la Nube...</div>;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 pb-24 font-sans">
@@ -148,12 +156,12 @@ export default function App() {
                 <table className="w-full text-sm border-collapse min-w-[1400px]">
                   <thead className="bg-slate-50 text-slate-400 font-black text-[10px] uppercase tracking-widest border-b border-slate-200">
                     <tr>
-                      <th className="p-6 w-64 sticky left-0 bg-slate-50 z-20 text-left">Participante</th>
+                      <th className="p-6 w-64 sticky left-0 bg-slate-50 z-20 text-left font-black">Participante</th>
                       {Array.from({length:16}).map((_,i)=>(
                         <th key={i} className={`p-4 border-l border-slate-100 min-w-[300px] ${(i+1)%4===0?'bg-blue-50/50':''}`}>
-                          <div className="text-slate-800 text-xs mb-3">SEMANA {i+1} {(i+1)%4===0?'🔵':''}</div>
+                          <div className="text-slate-800 text-xs mb-3 font-black">SEMANA {i+1} {(i+1)%4===0?'🔵':''}</div>
                           <div className="flex gap-1 opacity-60 font-bold tracking-tight">
-                            <span className="flex-1">Kg</span><span className="flex-1">Cuel</span><span className="flex-1">Cint</span><span className="flex-1">Cad</span><span className="flex-1 text-blue-600 font-black">Grasa %</span>
+                            <span className="flex-1">Kg</span><span className="flex-1">Cuello</span><span className="flex-1">Cint</span><span className="flex-1">Cad</span><span className="flex-1 text-blue-600 font-black">Grasa %</span>
                           </div>
                         </th>
                       ))}
@@ -218,7 +226,7 @@ export default function App() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="text-slate-300 font-black text-[10px] uppercase tracking-[0.25em] border-b border-slate-100">
-                  <tr><th className="p-6">Pos</th><th className="p-6">Jugador</th><th className="p-6 text-center">Peso Bajado</th><th className="p-6 text-center">Grasa Bajada</th><th className="p-6 text-center">Mejor Racha</th><th className="p-6 text-right">Puntuación</th></tr>
+                  <tr><th className="p-6">Pos</th><th className="p-6">Jugador</th><th className="p-6 text-center">Peso Bajado</th><th className="p-6 text-center">Grasa Bajada</th><th className="p-6 text-center">Mejor Racha</th><th className="p-6 text-right font-black">Puntuación</th></tr>
                 </thead>
                 <tbody>
                   {rankingData.ranked.map((r,i) => (
