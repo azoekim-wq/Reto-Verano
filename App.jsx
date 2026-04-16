@@ -3,14 +3,15 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// 1. CONFIGURACIÓN GLOBAL
+// 1. CONFIGURACIÓN EXTRAÍDA DE TU CAPTURA (Verificada)
 const firebaseConfig = {
-  apiKey: "AIzaSyD-BUO7VCx64Eq8-VyXt4ZEIP1AY_tr-JA",
+  apiKey: "AIzaSyD-BUO7VCx64Eq8-VyXt4ZEIP1AY_tr-JA".trim(),
   authDomain: "reto-verano-46f08.firebaseapp.com",
   projectId: "reto-verano-46f08",
   storageBucket: "reto-verano-46f08.firebasestorage.app",
   messagingSenderId: "1082177297543",
-  appId: "1:1082177297543:web:b778fc3c3e53e53e16af6c22"
+  appId: "1:1082177297543:web:b778fc3c3e53e53e16af6c22",
+  measurementId: "G-0XQSP6LJF0"
 };
 
 const appId = 'reto-verano-2024';
@@ -21,7 +22,7 @@ const db = getFirestore(app);
 const TOTAL_WEEKS = 16;
 const COLORS = ["#4f6ef7", "#f56565", "#ed8936", "#48bb78", "#9f7aea", "#38b2ac", "#ed64a6", "#667eea", "#fc8181", "#4fd1c5"];
 
-// Lógica de cálculo de Grasa Corporal
+// Cálculo del % de Grasa
 const calculateBFP = (gender, height, neck, waist, hip) => {
   if (!height || !neck || !waist) return null;
   const h = parseFloat(height);
@@ -47,18 +48,15 @@ export default function App() {
   const [errorInfo, setErrorInfo] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
   const [modalState, setModalState] = useState({ isOpen: false, type: '', data: null });
-  
-  // Formulario temporal
   const [form, setForm] = useState({ name: '', gender: 'M', age: '', height: '' });
 
-  // EFECTO: Autenticación
+  // Autenticación
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
       } else {
         signInAnonymously(auth).catch(err => {
-          console.error("Auth Error:", err);
           setErrorInfo(`Error de Autenticación: ${err.code}`);
         });
       }
@@ -66,7 +64,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // EFECTO: Datos en tiempo real
+  // Datos en tiempo real
   useEffect(() => {
     if (!user) return;
     const q = collection(db, 'retos', appId, 'participantes');
@@ -77,7 +75,6 @@ export default function App() {
         setLoading(false);
       }, 
       (err) => {
-        console.error("Firestore Error:", err);
         setErrorInfo(`Error de Base de Datos: ${err.code}`);
         setLoading(false);
       }
@@ -102,13 +99,12 @@ export default function App() {
         weeklyData: newData.filter(w => Object.keys(w).length > 1).sort((a,b)=>a.week-b.week) 
       });
       showToast('Guardado ✓');
-    } catch (e) { showToast('Error al guardar'); }
+    } catch (e) { showToast('Error'); }
   };
 
   const confirmAction = async () => {
     if (!form.name.trim() || !form.age || !form.height) return;
     const id = modalState.type === 'add' ? `p${Date.now()}` : modalState.data.docId;
-    
     try {
       if (modalState.type === 'delete') {
         await deleteDoc(doc(db, 'retos', appId, 'participantes', id));
@@ -120,11 +116,11 @@ export default function App() {
         await updateDoc(doc(db, 'retos', appId, 'participantes', id), { ...form });
       }
       setModalState({ isOpen: false });
-      showToast('Actualizado ✨');
-    } catch (e) { showToast('Error en la operación'); }
+      showToast('Hecho ✨');
+    } catch (e) { showToast('Error'); }
   };
 
-  // Lógica del Ranking (Verificada)
+  // Ranking (Re-verificado)
   const rankingData = useMemo(() => {
     return participants.filter(p => p.weeklyData?.length >= 2).map(p => {
       const sorted = [...p.weeklyData].sort((a,b)=>a.week-b.week);
@@ -143,7 +139,8 @@ export default function App() {
       let pW = first.weight;
       let pF = bfp1;
 
-      sorted.slice(sorted.indexOf(first) + 1).forEach(w => {
+      const firstIndex = sorted.indexOf(first);
+      sorted.slice(firstIndex + 1).forEach(w => {
         const b = calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip);
         let improved = false;
         if (w.weight && pW && w.weight < pW) improved = true;
@@ -180,7 +177,7 @@ export default function App() {
           <h1 className="text-3xl font-black tracking-tighter italic flex items-center gap-3">
             <span className="text-orange-500">🔥</span> RETO VERANO
           </h1>
-          <div className="flex bg-slate-100 p-1.5 rounded-2xl shadow-inner">
+          <div className="flex bg-slate-100 p-1.5 rounded-2xl">
             {['data','ranking'].map(t => (
               <button key={t} onClick={()=>setActiveTab(t)} className={`px-10 py-3 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab===t ? 'bg-white text-blue-600 shadow-md scale-105' : 'text-slate-400'}`}>
                 {t==='data'?'Registro':'Ranking'}
@@ -211,55 +208,51 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {participants.map(p => {
-                      const ageVal = p.age || '';
-                      const heightVal = p.height || '';
-                      return (
-                        <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50 group">
-                          <td className="p-6 sticky left-0 bg-white group-hover:bg-slate-50 z-10">
-                            <div className="flex items-center justify-between">
-                              <div onClick={()=> { setForm({name:p.name, gender:p.gender, age:p.age, height:p.height}); setModalState({isOpen:true, type:'edit', data:{docId:p.docId, ...p}}); }} className="cursor-pointer">
-                                <div className="font-black text-xl flex items-center gap-2 tracking-tighter hover:text-blue-600 transition-colors"><div className="w-3 h-3 rounded-full shadow-sm" style={{background:p.color}}></div>{p.name}</div>
-                                <div className="text-[10px] font-bold opacity-30 uppercase ml-5 mt-1">{p.gender==='M'?'Hombre':'Mujer'} · {heightVal}cm</div>
-                              </div>
-                              <button onClick={()=>setModalState({isOpen:true, type:'delete', data:{docId:p.docId, playerName:p.name}})} className="opacity-0 group-hover:opacity-100 text-red-200 hover:text-red-500 transition-opacity">🗑️</button>
+                    {participants.map(p => (
+                      <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50 group">
+                        <td className="p-6 sticky left-0 bg-white group-hover:bg-slate-50 z-10">
+                          <div className="flex items-center justify-between">
+                            <div onClick={()=> { setForm({name:p.name, gender:p.gender, age:p.age, height:p.height}); setModalState({isOpen:true, type:'edit', data:{docId:p.docId, ...p}}); }} className="cursor-pointer">
+                              <div className="font-black text-xl flex items-center gap-2 tracking-tighter hover:text-blue-600 transition-colors"><div className="w-3 h-3 rounded-full shadow-sm" style={{background:p.color}}></div>{p.name}</div>
+                              <div className="text-[10px] font-bold opacity-30 uppercase ml-5 mt-1">{p.gender==='M'?'Hombre':'Mujer'} · {p.height}cm</div>
                             </div>
-                          </td>
-                          {Array.from({length:16}).map((_,i)=>{
-                            const wNum = i+1; const hito = wNum%4===0;
-                            const wData = p.weeklyData?.find(w=>w.week === wNum) || {};
-                            const bfp = calculateBFP(p.gender, p.height, wData.neck, wData.waist, wData.hip);
-                            return (
-                              <td key={i} className={`p-4 border-l border-slate-100 align-middle ${hito?'bg-blue-50/15':''}`}>
-                                <div className="flex flex-col gap-4 min-h-[120px] justify-center text-slate-900">
-                                  <div className="grid grid-cols-5 gap-2">
-                                    {['weight','neck','waist','hip'].map(f => (
-                                      <input key={f} type="number" step="0.1" disabled={f==='hip'&&p.gender==='M'}
-                                        defaultValue={wData[f]||''} onBlur={(e)=>handleDataChange(p, wNum, f, e.target.value)}
-                                        className={`p-3 text-center text-xs font-black rounded-xl outline-none border border-transparent focus:border-blue-400 focus:bg-white transition-all shadow-sm ${f==='hip'&&p.gender==='M'?'bg-transparent opacity-5':'bg-slate-100/70 hover:bg-slate-200'}`}
+                            <button onClick={()=>setModalState({isOpen:true, type:'delete', data:{docId:p.docId, playerName:p.name}})} className="opacity-0 group-hover:opacity-100 text-red-200 hover:text-red-500 transition-opacity">🗑️</button>
+                          </div>
+                        </td>
+                        {Array.from({length:16}).map((_,i)=>{
+                          const wNum = i+1; const hito = wNum%4===0;
+                          const wData = p.weeklyData?.find(w=>w.week === wNum) || {};
+                          const bfp = calculateBFP(p.gender, p.height, wData.neck, wData.waist, wData.hip);
+                          return (
+                            <td key={i} className={`p-4 border-l border-slate-100 align-middle ${hito?'bg-blue-50/15':''}`}>
+                              <div className="flex flex-col gap-4 min-h-[120px] justify-center text-slate-900">
+                                <div className="grid grid-cols-5 gap-2">
+                                  {['weight','neck','waist','hip'].map(f => (
+                                    <input key={f} type="number" step="0.1" disabled={f==='hip'&&p.gender==='M'}
+                                      defaultValue={wData[f]||''} onBlur={(e)=>handleDataChange(p, wNum, f, e.target.value)}
+                                      className={`p-3 text-center text-xs font-black rounded-xl outline-none border border-transparent focus:border-blue-400 focus:bg-white transition-all shadow-sm ${f==='hip'&&p.gender==='M'?'bg-transparent opacity-5':'bg-slate-100/70 hover:bg-slate-200'}`}
+                                    />
+                                  ))}
+                                  <div className="flex items-center justify-center font-black text-blue-700 bg-blue-100/50 rounded-xl text-[11px] border border-blue-200/20 shadow-inner">
+                                    {bfp ? bfp.toFixed(1) : '-'}
+                                  </div>
+                                </div>
+                                {hito && (
+                                  <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-blue-100/40">
+                                    {['arm', 'chest'].map(f => (
+                                      <input key={f} type="number" step="0.5" defaultValue={wData[f]||''} placeholder={f==='arm'?'BRAZO':'PECHO'}
+                                        onBlur={(e)=>handleDataChange(p, wNum, f, e.target.value)}
+                                        className="p-3 text-center text-[10px] font-black rounded-xl bg-indigo-50 text-indigo-700 border border-transparent focus:border-indigo-300 uppercase tracking-tighter"
                                       />
                                     ))}
-                                    <div className="flex items-center justify-center font-black text-blue-700 bg-blue-100/50 rounded-xl text-[11px] border border-blue-200/20 shadow-inner">
-                                      {bfp ? bfp.toFixed(1) : '-'}
-                                    </div>
                                   </div>
-                                  {hito && (
-                                    <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-blue-100/40">
-                                      {['arm', 'chest'].map(f => (
-                                        <input key={f} type="number" step="0.5" defaultValue={wData[f]||''} placeholder={f==='arm'?'BRAZO':'PECHO'}
-                                          onBlur={(e)=>handleDataChange(p, wNum, f, e.target.value)}
-                                          className="p-3 text-center text-[10px] font-black rounded-xl bg-indigo-50 text-indigo-700 border border-transparent focus:border-indigo-300 uppercase tracking-tighter"
-                                        />
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -298,7 +291,7 @@ export default function App() {
           <div className="bg-white rounded-[3.5rem] p-12 w-full max-w-md shadow-2xl border border-white/20 animate-in zoom-in-95 duration-200 text-slate-900">
             <h3 className="text-3xl font-black mb-8 tracking-tighter uppercase italic">{modalState.type==='add'?'👤 NUEVO':'✏️ PERFIL'}</h3>
             {modalState.type !== 'delete' ? (
-              <div className="space-y-6 mb-10">
+              <div className="space-y-6 mb-10 text-slate-900">
                 <input type="text" placeholder="Nombre" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none focus:ring-4 ring-blue-500/10 focus:bg-white transition-all shadow-sm" />
                 <div className="grid grid-cols-2 gap-6">
                   <select value={form.gender} onChange={e=>setForm({...form, gender: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none cursor-pointer"><option value="M">Hombre</option><option value="F">Mujer</option></select>
