@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// 1. CONFIGURACIÓN EXTRAÍDA DE TU CAPTURA ORIGINAL
+// 1. CONFIGURACIÓN FIREBASE (Exacta a tu proyecto)
 const firebaseConfig = {
   apiKey: "AIzaSyD-BUO7VCx64Eq8-VyXt4ZEIP1AY_tr-JA",
   authDomain: "reto-verano-46f08.firebaseapp.com",
@@ -22,14 +22,12 @@ const appId = 'reto-verano-2024';
 const TOTAL_WEEKS = 16;
 const COLORS = ["#4f6ef7", "#f56565", "#ed8936", "#48bb78", "#9f7aea", "#38b2ac", "#ed64a6", "#667eea", "#fc8181", "#4fd1c5"];
 
-// Cálculo de % Grasa Corporal
 const calculateBFP = (gender, height, neck, waist, hip) => {
   if (!height || !neck || !waist) return null;
   const h = parseFloat(height);
   const n = parseFloat(neck);
   const w = parseFloat(waist);
   const hi = parseFloat(hip || 0);
-
   if (gender === 'M') {
     const diff = w - n;
     return diff <= 0 ? null : (495 / (1.0324 - 0.19077 * Math.log10(diff) + 0.15456 * Math.log10(h)) - 450);
@@ -50,21 +48,19 @@ export default function App() {
   const [modalState, setModalState] = useState({ isOpen: false, type: '', data: null });
   const [form, setForm] = useState({ name: '', gender: 'M', age: '', height: '' });
 
-  // 1. Iniciar sesión anónima
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       if (u) {
         setUser(u);
       } else {
         signInAnonymously(auth).catch(err => {
-          setErrorInfo(`Error de Llave: ${err.code}. Revisa que en Firebase > Auth > Método de acceso, "Anónimo" esté habilitado.`);
+          setErrorInfo(`Error de Llave: ${err.code}. Asegúrate de habilitar la 'Identity Toolkit API' en Google Cloud (Paso 1).`);
         });
       }
     });
     return () => unsub();
   }, []);
 
-  // 2. Escuchar base de datos
   useEffect(() => {
     if (!user) return;
     const q = collection(db, 'retos', appId, 'participantes');
@@ -73,7 +69,7 @@ export default function App() {
       setParticipants(docs.sort((a,b) => (parseInt(a.id?.replace('p','')) || 0) - (parseInt(b.id?.replace('p','')) || 0)));
       setLoading(false);
     }, (err) => {
-      setErrorInfo(`Error Firestore: ${err.code}. Revisa las Reglas en la consola.`);
+      setErrorInfo(`Error Firestore: ${err.code}. Revisa las reglas de la base de datos.`);
       setLoading(false);
     });
   }, [user]);
@@ -89,7 +85,6 @@ export default function App() {
     const idx = newData.findIndex(w => w.week === weekNum);
     if (idx >= 0) newData[idx] = { ...newData[idx], [field]: num };
     else newData.push({ week: weekNum, [field]: num });
-
     try {
       await updateDoc(doc(db, 'retos', appId, 'participantes', p.docId || p.id), { 
         weeklyData: newData.filter(w => Object.keys(w).length > 1).sort((a,b)=>a.week-b.week) 
@@ -116,47 +111,36 @@ export default function App() {
     } catch (e) { showToast('Error'); }
   };
 
-  // Ranking Simplificado y Robusto
   const rankingData = useMemo(() => {
     return participants.filter(p => p.weeklyData?.length >= 2).map(p => {
       const sorted = [...p.weeklyData].sort((a,b)=>a.week-b.week);
-      const f = sorted.find(w => w.weight && calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip));
-      const l = [...sorted].reverse().find(w => w.weight && calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip));
-      
-      if (!f || !l || f.week === l.week) return { ...p, score: 0, isUnranked: true };
-
-      const b1 = calculateBFP(p.gender, p.height, f.neck, f.waist, f.hip) || 0;
-      const b2 = calculateBFP(p.gender, p.height, l.neck, l.waist, l.hip) || 0;
-      const wL = Math.max(0, (f.weight || 0) - (l.weight || 0));
-      const fL = Math.max(0, b1 - b2);
-      
-      let streakMax = 0, streakCurr = 0, lastW = f.weight, lastB = b1;
-      sorted.slice(sorted.indexOf(f) + 1).forEach(w => {
+      const fItem = sorted.find(w => w.weight && calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip));
+      const lItem = [...sorted].reverse().find(w => w.weight && calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip));
+      if (!fItem || !lItem || fItem.week === lItem.week) return { ...p, score: 0, isUnranked: true };
+      const b1 = calculateBFP(p.gender, p.height, fItem.neck, fItem.waist, fItem.hip) || 0;
+      const b2 = calculateBFP(p.gender, p.height, lItem.neck, lItem.waist, lItem.hip) || 0;
+      const wLoss = Math.max(0, (fItem.weight || 0) - (lItem.weight || 0));
+      const fLoss = Math.max(0, b1 - b2);
+      let streakM = 0, streakC = 0, lastWeight = fItem.weight, lastBfp = b1;
+      sorted.slice(sorted.indexOf(fItem) + 1).forEach(w => {
         const b = calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip);
         let win = false;
-        if (w.weight && lastW && w.weight < lastW) win = true;
-        if (b && lastB && b < lastB) win = true;
-
-        if (win) { 
-          streakCurr++; 
-          if (streakCurr > streakMax) streakMax = streakCurr; 
-        } else if (w.weight || b) {
-          streakCurr = 0;
-        }
-        if (w.weight) lastW = w.weight; 
-        if (b) lastB = b;
+        if (w.weight && lastWeight && w.weight < lastWeight) win = true;
+        if (b && lastBfp && b < lastBfp) win = true;
+        if (win) { streakC++; if (streakC > streakM) streakM = streakC; }
+        else if (w.weight || b) streakC = 0;
+        if (w.weight) lastWeight = w.weight; if (b) lastBfp = b;
       });
-
-      const total = (wL * 2) + (fL * 3) + (streakMax * 2);
-      return { ...p, wL, fL, streakMax, score: total.toFixed(1) };
+      const total = (wLoss * 2) + (fLoss * 3) + (streakM * 2);
+      return { ...p, wLoss, fLoss, streakM, score: total.toFixed(1) };
     }).filter(p => !p.isUnranked).sort((a,b) => b.score - a.score);
   }, [participants]);
 
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center font-black text-slate-800 bg-[#f8fafc] p-10 text-center uppercase italic tracking-tighter">
       <div className="text-6xl mb-6 animate-bounce text-orange-500">🔥</div>
-      <div className="animate-pulse text-2xl mb-4">Cargando v2.3...</div>
-      {errorInfo && <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 text-sm font-bold max-w-sm leading-relaxed shadow-sm">{errorInfo}</div>}
+      <div className="animate-pulse text-2xl mb-4">Cargando v2.4...</div>
+      {errorInfo && <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 text-sm font-bold max-w-sm shadow-sm">{errorInfo}</div>}
     </div>
   );
 
@@ -165,7 +149,7 @@ export default function App() {
       <div className="max-w-[1600px] mx-auto space-y-6">
         <header className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
           <h1 className="text-3xl font-black tracking-tighter italic flex items-center gap-3">
-            <span className="text-orange-500">🔥</span> RETO VERANO <span className="text-[10px] bg-green-100 text-green-600 px-2 py-1 rounded-full not-italic tracking-normal">v2.3</span>
+            <span className="text-orange-500">🔥</span> RETO VERANO <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded-full not-italic tracking-normal font-black uppercase">v2.4</span>
           </h1>
           <div className="flex bg-slate-100 p-1.5 rounded-2xl">
             {['data','ranking'].map(t => (
@@ -215,8 +199,8 @@ export default function App() {
                           const bfp = calculateBFP(p.gender, p.height, wData.neck, wData.waist, wData.hip);
                           return (
                             <td key={i} className={`p-4 border-l border-slate-100 align-middle ${hito?'bg-blue-50/15':''}`}>
-                              <div className="flex flex-col gap-4 min-h-[120px] justify-center text-slate-900">
-                                <div className="grid grid-cols-5 gap-2">
+                              <div className="flex flex-col gap-4 min-h-[120px] justify-center text-slate-900 font-black">
+                                <div className="grid grid-cols-5 gap-2 font-black">
                                   {['weight','neck','waist','hip'].map(f => (
                                     <input key={f} type="number" step="0.1" disabled={f==='hip'&&p.gender==='M'}
                                       defaultValue={wData[f]||''} onBlur={(e)=>handleDataChange(p, wNum, f, e.target.value)}
@@ -228,7 +212,7 @@ export default function App() {
                                   </div>
                                 </div>
                                 {hito && (
-                                  <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-blue-100/40 font-black">
+                                  <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-blue-100/40">
                                     {['arm', 'chest'].map(f => (
                                       <input key={f} type="number" step="0.5" defaultValue={wData[f]||''} placeholder={f==='arm'?'BRAZO':'PECHO'}
                                         onBlur={(e)=>handleDataChange(p, wNum, f, e.target.value)}
@@ -252,20 +236,20 @@ export default function App() {
 
         {activeTab === 'ranking' && (
           <div className="bg-white rounded-[3rem] p-10 border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-4xl font-black mb-10 tracking-tighter italic flex items-center gap-4">🏆 CLASIFICACIÓN</h2>
+            <h2 className="text-4xl font-black mb-10 tracking-tighter italic flex items-center gap-4 text-slate-900">🏆 CLASIFICACIÓN</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left font-black">
                 <thead className="text-slate-300 font-black text-[10px] uppercase tracking-[0.25em] border-b border-slate-100">
-                  <tr><th className="p-6">Pos</th><th className="p-6">Jugador</th><th className="p-6 text-center">Peso Bajado</th><th className="p-6 text-center">Grasa Bajada</th><th className="p-6 text-center">Mejor Racha</th><th className="p-6 text-right font-black">Puntuación</th></tr>
+                  <tr><th className="p-6 font-black">Pos</th><th className="p-6 font-black">Jugador</th><th className="p-6 text-center font-black">Peso Bajado</th><th className="p-6 text-center font-black">Grasa Bajada</th><th className="p-6 text-center font-black">Mejor Racha</th><th className="p-6 text-right font-black">Puntuación</th></tr>
                 </thead>
                 <tbody>
                   {rankingData.map((r,i) => (
                     <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50 transition-all group font-black">
                       <td className="p-6 text-5xl font-black italic text-slate-100 group-hover:text-slate-200 transition-colors">{i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
-                      <td className="p-6 font-black"><div className="flex items-center gap-4 font-black text-2xl tracking-tighter"><span className="w-4 h-4 rounded-full shadow-md" style={{background:r.color}}></span>{r.name}</div></td>
-                      <td className="p-6 text-center text-green-500 font-black text-xl tracking-tight">-{r.wL.toFixed(1)}kg</td>
-                      <td className="p-6 text-center text-green-500 font-black text-xl tracking-tight">-{r.fL.toFixed(1)}%</td>
-                      <td className="p-6 text-center font-black text-slate-300 group-hover:text-blue-500 transition-colors tracking-tight">{r.streakMax} semanas</td>
+                      <td className="p-6"><div className="flex items-center gap-4 font-black text-2xl tracking-tighter text-slate-900"><span className="w-4 h-4 rounded-full shadow-md" style={{background:r.color}}></span>{r.name}</div></td>
+                      <td className="p-6 text-center text-green-500 font-black text-xl tracking-tight">-{r.wLoss.toFixed(1)}kg</td>
+                      <td className="p-6 text-center text-green-500 font-black text-xl tracking-tight">-{r.fLoss.toFixed(1)}%</td>
+                      <td className="p-6 text-center font-black text-slate-300 group-hover:text-blue-500 transition-colors tracking-tight">{r.streakM} semanas</td>
                       <td className="p-6 text-right text-5xl font-black text-slate-900 tracking-tighter tabular-nums">{r.score} <span className="text-xs opacity-20 uppercase tracking-widest font-bold ml-1">pts</span></td>
                     </tr>
                   ))}
@@ -277,11 +261,11 @@ export default function App() {
       </div>
 
       {modalState.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xl z-50 flex items-center justify-center p-4 font-black">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xl z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-[3.5rem] p-12 w-full max-w-md shadow-2xl border border-white/20 animate-in zoom-in-95 duration-200 font-black">
             <h3 className="text-3xl font-black mb-8 tracking-tighter uppercase italic">{modalState.type==='add'?'👤 NUEVO':'✏️ PERFIL'}</h3>
             {modalState.type !== 'delete' ? (
-              <div className="space-y-6 mb-10 font-black">
+              <div className="space-y-6 mb-10 text-slate-900 font-black">
                 <input type="text" placeholder="Nombre" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-black outline-none focus:ring-4 ring-blue-500/10 focus:bg-white transition-all shadow-sm" />
                 <div className="grid grid-cols-2 gap-6">
                   <select value={form.gender} onChange={e=>setForm({...form, gender: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-black outline-none cursor-pointer"><option value="M">Hombre</option><option value="F">Mujer</option></select>
@@ -289,7 +273,7 @@ export default function App() {
                 </div>
                 <input type="number" placeholder="Altura (cm)" value={form.height} onChange={e=>setForm({...form, height: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-black outline-none shadow-sm" />
               </div>
-            ) : <p className="mb-10 text-slate-500 font-black text-xl text-center leading-tight tracking-tight">¿Eliminar a <b>{modalState.data.playerName}</b>?</p>}
+            ) : <p className="mb-10 text-slate-500 font-black text-xl text-center leading-tight tracking-tight text-slate-900">¿Eliminar a <b>{modalState.data.playerName}</b>?</p>}
             <div className="flex gap-4">
               <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-300 hover:bg-slate-50 transition-colors uppercase tracking-widest text-[10px]">CANCELAR</button>
               <button onClick={confirmAction} className={`flex-1 p-5 rounded-2xl font-black text-white shadow-xl uppercase tracking-widest text-[10px] ${modalState.type==='delete'?'bg-red-500 shadow-red-100':'bg-blue-600 shadow-blue-100'}`}>CONFIRMAR</button>
