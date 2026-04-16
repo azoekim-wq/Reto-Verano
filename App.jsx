@@ -3,9 +3,11 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// 1. CONFIGURACIÓN FIREBASE (Verificada con tu imagen cc96e0 / ccb16b)
+// 1. CONFIGURACIÓN FIREBASE 
+// ⚠️ ATENCIÓN: Pega aquí tu API Key copiada directamente de Firebase. 
+// No uses la que yo transcribí porque tenía un error de lectura (una O por un 0).
 const firebaseConfig = {
-  apiKey: "AIzaSyD-BUO7VCx64Eq8-VyXt4ZEIP1AY_tr-JA",
+  apiKey: "AIzaSyD-BUO7VCx64Eq8-VyXt4ZEIP1AY_tR-JA", 
   authDomain: "reto-verano-46f08.firebaseapp.com",
   projectId: "reto-verano-46f08",
   storageBucket: "reto-verano-46f08.firebasestorage.app",
@@ -139,7 +141,7 @@ export default function App() {
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center font-black text-slate-800 bg-[#f8fafc] p-10 text-center uppercase italic tracking-tighter">
       <div className="text-6xl mb-6 animate-bounce text-indigo-600">🔥</div>
-      <div className="animate-pulse text-2xl mb-4">Cargando v2.7...</div>
+      <div className="animate-pulse text-2xl mb-4">Cargando v2.8...</div>
       {errorInfo && <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 text-sm font-bold max-w-sm shadow-sm">{errorInfo}</div>}
     </div>
   );
@@ -149,7 +151,7 @@ export default function App() {
       <div className="max-w-[1600px] mx-auto space-y-6">
         <header className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
           <h1 className="text-3xl font-black tracking-tighter italic flex items-center gap-3">
-            <span className="text-indigo-600">🔥</span> RETO VERANO <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-1 rounded-full not-italic tracking-normal font-black uppercase">v2.7</span>
+            <span className="text-indigo-600">🔥</span> RETO VERANO <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-1 rounded-full not-italic tracking-normal font-black uppercase">v2.8</span>
           </h1>
           <div className="flex bg-slate-100 p-1.5 rounded-2xl shadow-inner">
             {['data','ranking'].map(t => (
