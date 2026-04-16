@@ -106,7 +106,7 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false, highlight
             return (
               <g key={`grid-${w}`}>
                 <line x1={x} y1={paddingY} x2={x} y2={height - paddingY} stroke="#f8fafc" strokeWidth="1" />
-                <text x={x} y={height - paddingY + 20} textAnchor="middle" fontSize="12" fill="#94a3b8" fontWeight="black">S{w}</text>
+                <text x={x} y={height - paddingY + 20} textAnchor="middle" fontSize="14" fill="#94a3b8" fontWeight="black">S{w}</text>
               </g>
             );
           })}
@@ -138,7 +138,7 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false, highlight
                       <circle cx={x} cy={y} r={circleR} fill={line.color} stroke="#ffffff" strokeWidth="2" opacity={lineOpacity} className={isHighlighted ? "drop-shadow-md" : "drop-shadow-sm"} />
                       {/* Ocultamos los textos si la línea está atenuada para limpiar la vista */}
                       {!isDimmed && (
-                        <text x={x} y={y - 12} textAnchor="middle" fontSize={isHighlighted ? "13" : "11"} fill={line.color} fontWeight="900" className="drop-shadow-md transition-all">
+                        <text x={x} y={y - 12} textAnchor="middle" fontSize={isHighlighted ? "15" : "13"} fill={line.color} fontWeight="900" className="drop-shadow-md transition-all">
                           {pt.value.toFixed(1)}
                         </text>
                       )}
@@ -276,7 +276,7 @@ export default function App() {
     <div className="h-screen flex flex-col items-center justify-center font-black text-slate-800 bg-[#f8fafc] p-10 text-center uppercase italic tracking-tighter">
       <div className="text-6xl mb-6 animate-bounce text-emerald-500">🔥</div>
       <div className="animate-pulse text-2xl mb-4">Cargando v3.3...</div>
-      {errorInfo && <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 text-sm font-bold max-w-sm shadow-sm">{errorInfo}</div>}
+      {errorInfo && <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 text-base font-bold max-w-sm shadow-sm">{errorInfo}</div>}
     </div>
   );
 
@@ -292,7 +292,7 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-3xl md:text-4xl font-black tracking-tighter italic text-slate-900">
-                RETO VERANO <span className="text-[12px] bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full not-italic tracking-normal font-bold uppercase align-middle ml-2">PRO v3.3</span>
+                RETO VERANO <span className="text-xs bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full not-italic tracking-normal font-bold uppercase align-middle ml-2">PRO v3.3</span>
               </h1>
               <p className="text-slate-400 font-bold text-sm tracking-tight mt-1">16 Semanas de Transformación</p>
             </div>
@@ -300,7 +300,7 @@ export default function App() {
           
           <div className="flex bg-slate-100 p-1.5 rounded-[1.5rem] w-full md:w-auto shadow-inner overflow-x-auto custom-scrollbar">
             {['data','graphs','ranking'].map(t => (
-              <button key={t} onClick={()=>setActiveTab(t)} className={`flex-1 md:flex-none px-6 py-3.5 rounded-2xl text-xs md:text-sm font-black transition-all uppercase tracking-widest whitespace-nowrap ${activeTab===t ? 'bg-white text-emerald-600 shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}>
+              <button key={t} onClick={()=>setActiveTab(t)} className={`flex-1 md:flex-none px-6 py-3.5 rounded-2xl text-sm font-black transition-all uppercase tracking-widest whitespace-nowrap ${activeTab===t ? 'bg-white text-emerald-600 shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}>
                 {t === 'data' ? '📋 Registro' : t === 'graphs' ? '📈 Gráficas' : '🏆 Ranking'}
               </button>
             ))}
@@ -319,11 +319,11 @@ export default function App() {
                 <table className="w-full text-sm border-collapse min-w-[1400px]">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      <th className="p-6 w-72 sticky left-0 bg-slate-50 z-20 text-left font-black text-slate-500 uppercase tracking-widest text-[10px]">Participante</th>
+                      <th className="p-6 w-72 sticky left-0 bg-slate-50 z-20 text-left font-black text-slate-500 uppercase tracking-widest text-xs">Participante</th>
                       {Array.from({length:16}).map((_,i)=>(
                         <th key={i} className={`p-4 border-l border-slate-200 min-w-[350px] ${(i+1)%4===0?'bg-emerald-50/50':''}`}>
                           <div className="text-slate-800 text-sm mb-3 font-black uppercase italic tracking-tight">Semana {i+1} {(i+1)%4===0?'🏆':''}</div>
-                          <div className="flex gap-2 font-black text-[10px] tracking-tight text-slate-700">
+                          <div className="flex gap-2 font-black text-xs tracking-tight text-slate-700">
                             <span className="flex-1 text-center bg-slate-200/70 py-1.5 rounded-md">Kg</span>
                             <span className="flex-1 text-center bg-slate-200/70 py-1.5 rounded-md">Cuello</span>
                             <span className="flex-1 text-center bg-slate-200/70 py-1.5 rounded-md">Cintura</span>
@@ -344,7 +344,7 @@ export default function App() {
                                 <div className="w-4 h-4 rounded-full shadow-sm border border-black/10" style={{background:p.color}}></div>
                                 {p.name}
                               </div>
-                              <div className="text-[11px] font-bold text-slate-400 uppercase ml-7 mt-1 tracking-wider">{p.gender==='M'?'Hombre':'Mujer'} • {p.height}cm • {p.age} años</div>
+                              <div className="text-xs font-bold text-slate-400 uppercase ml-7 mt-1 tracking-wider">{p.gender==='M'?'Hombre':'Mujer'} • {p.height}cm • {p.age} años</div>
                             </div>
                             <button onClick={()=>setModalState({isOpen:true, type:'delete', data:{docId:p.docId, playerName:p.name}})} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all bg-white hover:bg-red-50 p-2 rounded-full shadow-sm">🗑️</button>
                           </div>
@@ -375,7 +375,7 @@ export default function App() {
                                   <div className="grid grid-cols-2 gap-3 pt-4 border-t-2 border-dashed border-emerald-200/60">
                                     {['arm', 'chest'].map(f => (
                                       <div key={f} className="flex flex-col bg-slate-800 rounded-xl overflow-hidden shadow-md focus-within:ring-2 focus-within:ring-emerald-400 transition-all">
-                                        <span className="text-[9px] text-center text-emerald-400 font-black pt-1.5 uppercase tracking-widest">
+                                        <span className="text-xs text-center text-emerald-400 font-black pt-2 uppercase tracking-widest">
                                           {f === 'arm' ? '💪 Brazo' : '👕 Pecho'}
                                         </span>
                                         <input type="number" step="0.5" defaultValue={wData[f]||''} 
@@ -416,7 +416,7 @@ export default function App() {
                     <button 
                       key={p.id} 
                       onClick={() => setHighlightedUser(isSelected ? null : p.id)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
                         isSelected 
                           ? 'bg-white shadow-md border-slate-300 scale-105 ring-2 ring-slate-100' 
                           : isDimmed 
@@ -425,7 +425,7 @@ export default function App() {
                       }`}
                     >
                       <span className="w-3 h-3 rounded-full shadow-sm" style={{background: p.color}}></span>
-                      <span className={`text-xs font-black ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>{p.name}</span>
+                      <span className={`text-sm font-black ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>{p.name}</span>
                     </button>
                   );
                 })}
@@ -453,7 +453,7 @@ export default function App() {
             
             <div className="overflow-x-auto font-black">
               <table className="w-full text-left">
-                <thead className="text-slate-400 font-black text-[10px] uppercase tracking-[0.25em] border-b-2 border-slate-100">
+                <thead className="text-slate-400 font-black text-xs uppercase tracking-[0.25em] border-b-2 border-slate-100">
                   <tr>
                     <th className="p-6">Pos</th>
                     <th className="p-6">Jugador</th>
@@ -484,16 +484,16 @@ export default function App() {
                           <div className="flex flex-col gap-4 py-2">
                             {/* BARRA PESO */}
                             <div className="flex items-center gap-3">
-                              <span className="text-[10px] font-black text-blue-600 w-12 text-right uppercase tracking-widest bg-blue-50 px-1 py-0.5 rounded">Peso</span>
-                              <span className="text-xs font-black text-slate-500 w-12 text-left">- {r.wLoss.toFixed(1)}</span>
+                              <span className="text-xs font-black text-blue-600 w-14 text-right uppercase tracking-widest bg-blue-50 px-1 py-1 rounded">Peso</span>
+                              <span className="text-sm font-black text-slate-500 w-12 text-left">- {r.wLoss.toFixed(1)}</span>
                               <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
                                 <div className="h-full bg-blue-500 rounded-full transition-all duration-1000" style={{width: `${pesoVisual}%`}}></div>
                               </div>
                             </div>
                             {/* BARRA GRASA */}
                             <div className="flex items-center gap-3">
-                              <span className="text-[10px] font-black text-emerald-600 w-12 text-right uppercase tracking-widest bg-emerald-50 px-1 py-0.5 rounded">Grasa</span>
-                              <span className="text-xs font-black text-slate-500 w-12 text-left">- {r.fLoss.toFixed(1)}</span>
+                              <span className="text-xs font-black text-emerald-600 w-14 text-right uppercase tracking-widest bg-emerald-50 px-1 py-1 rounded">Grasa</span>
+                              <span className="text-sm font-black text-slate-500 w-12 text-left">- {r.fLoss.toFixed(1)}</span>
                               <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
                                 <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{width: `${grasaVisual}%`}}></div>
                               </div>
@@ -504,13 +504,13 @@ export default function App() {
                         <td className="p-6 text-center">
                           <div className="inline-flex items-center justify-center gap-2 bg-orange-50 text-orange-600 px-4 py-2 rounded-2xl border border-orange-200 shadow-sm">
                             <span className="text-lg">🔥</span> 
-                            <span>{r.rMax} sem</span>
+                            <span className="text-base">{r.rMax} sem</span>
                           </div>
                         </td>
                         
                         <td className="p-6 text-right">
                           <div className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter tabular-nums drop-shadow-sm">
-                            {r.score} <span className="text-xs opacity-40 uppercase tracking-widest font-bold ml-1 align-middle">pts</span>
+                            {r.score} <span className="text-sm md:text-base opacity-40 uppercase tracking-widest font-bold ml-1 align-middle">pts</span>
                           </div>
                         </td>
                       </tr>
@@ -539,23 +539,23 @@ export default function App() {
             {modalState.type !== 'delete' ? (
               <div className="space-y-6 mb-10 text-slate-900 font-black">
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest text-slate-500 ml-2">Nombre del Participante</label>
+                  <label className="text-xs uppercase tracking-widest text-slate-500 ml-2">Nombre del Participante</label>
                   <input type="text" placeholder="Ej: David" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border-2 border-slate-200 font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-sm text-slate-900 text-lg" />
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-slate-500 ml-2">Género</label>
+                    <label className="text-xs uppercase tracking-widest text-slate-500 ml-2">Género</label>
                     <select value={form.gender} onChange={e=>setForm({...form, gender: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border-2 border-slate-200 font-black outline-none cursor-pointer focus:border-emerald-500 text-slate-900 text-lg">
                       <option value="M">Hombre</option><option value="F">Mujer</option>
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-slate-500 ml-2">Edad</label>
+                    <label className="text-xs uppercase tracking-widest text-slate-500 ml-2">Edad</label>
                     <input type="number" placeholder="25" value={form.age} onChange={e=>setForm({...form, age: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border-2 border-slate-200 font-bold outline-none focus:border-emerald-500 shadow-sm text-slate-900 text-lg" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest text-slate-500 ml-2">Altura (cm)</label>
+                  <label className="text-xs uppercase tracking-widest text-slate-500 ml-2">Altura (cm)</label>
                   <input type="number" placeholder="175" value={form.height} onChange={e=>setForm({...form, height: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border-2 border-slate-200 font-bold outline-none focus:border-emerald-500 shadow-sm text-slate-900 text-lg" />
                 </div>
               </div>
@@ -567,15 +567,15 @@ export default function App() {
             )}
             
             <div className="flex gap-4">
-              <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors uppercase tracking-widest text-[11px]">CANCELAR</button>
-              <button onClick={confirmAction} className={`flex-1 p-5 rounded-2xl font-black text-white shadow-xl hover:-translate-y-1 transition-all uppercase tracking-widest text-[11px] ${modalState.type==='delete'?'bg-red-500 hover:bg-red-600 shadow-red-200':'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200'}`}>CONFIRMAR</button>
+              <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors uppercase tracking-widest text-sm">CANCELAR</button>
+              <button onClick={confirmAction} className={`flex-1 p-5 rounded-2xl font-black text-white shadow-xl hover:-translate-y-1 transition-all uppercase tracking-widest text-sm ${modalState.type==='delete'?'bg-red-500 hover:bg-red-600 shadow-red-200':'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200'}`}>CONFIRMAR</button>
             </div>
           </div>
         </div>
       )}
 
       {toastMsg && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-4 rounded-full font-black shadow-2xl z-50 animate-in slide-in-from-bottom-10 fade-in duration-300 tracking-tight border border-white/10 uppercase text-xs tracking-[0.1em] flex items-center gap-3">
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-4 rounded-full font-black shadow-2xl z-50 animate-in slide-in-from-bottom-10 fade-in duration-300 tracking-tight border border-white/10 uppercase text-sm tracking-[0.1em] flex items-center gap-3">
           <span className="text-emerald-400 text-xl">✓</span> {toastMsg}
         </div>
       )}
