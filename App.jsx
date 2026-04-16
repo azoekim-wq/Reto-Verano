@@ -524,6 +524,28 @@ export default function App() {
                 </div>
               )}
             </div>
+
+            {/* EXPLICACIÓN DEL SISTEMA DE PUNTUACIÓN */}
+            <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+              <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <span className="text-lg">ℹ️</span> Sistema de Puntuación
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-bold text-slate-500">
+                <div className="flex items-start gap-3">
+                  <span className="w-3 h-3 rounded-full bg-blue-500 mt-0.5 shrink-0 shadow-sm"></span>
+                  <p><span className="text-slate-700 font-black">Peso Bajado:</span> 2 puntos por cada Kg perdido respecto a la primera semana.</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500 mt-0.5 shrink-0 shadow-sm"></span>
+                  <p><span className="text-slate-700 font-black">Grasa Bajada:</span> 3 puntos por cada 1% de grasa corporal perdido.</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="w-3 h-3 rounded-full bg-orange-500 mt-0.5 shrink-0 shadow-sm"></span>
+                  <p><span className="text-slate-700 font-black">Mejor Racha:</span> 2 puntos por cada semana consecutiva bajando de peso o % de grasa.</p>
+                </div>
+              </div>
+            </div>
+
           </div>
         )}
       </div>
