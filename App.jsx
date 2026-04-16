@@ -3,9 +3,9 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// 1. CONFIGURACIÓN EXTRAÍDA DE TU CAPTURA (Verificada)
+// 1. CONFIGURACIÓN (Extraída de tu captura de pantalla)
 const firebaseConfig = {
-  apiKey: "AIzaSyD-BUO7VCx64Eq8-VyXt4ZEIP1AY_tr-JA".trim(),
+  apiKey: "AIzaSyD-BUO7VCx64Eq8-VyXt4ZEIP1AY_tr-JA",
   authDomain: "reto-verano-46f08.firebaseapp.com",
   projectId: "reto-verano-46f08",
   storageBucket: "reto-verano-46f08.firebasestorage.app",
@@ -14,15 +14,16 @@ const firebaseConfig = {
   measurementId: "G-0XQSP6LJF0"
 };
 
-const appId = 'reto-verano-2024';
+// Inicialización segura
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const appId = 'reto-verano-2024';
 
 const TOTAL_WEEKS = 16;
 const COLORS = ["#4f6ef7", "#f56565", "#ed8936", "#48bb78", "#9f7aea", "#38b2ac", "#ed64a6", "#667eea", "#fc8181", "#4fd1c5"];
 
-// Cálculo del % de Grasa
+// Cálculo del % de Grasa Corporal
 const calculateBFP = (gender, height, neck, waist, hip) => {
   if (!height || !neck || !waist) return null;
   const h = parseFloat(height);
@@ -50,21 +51,21 @@ export default function App() {
   const [modalState, setModalState] = useState({ isOpen: false, type: '', data: null });
   const [form, setForm] = useState({ name: '', gender: 'M', age: '', height: '' });
 
-  // Autenticación
+  // Escuchar estado de autenticación
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      if (u) {
+        setUser(u);
       } else {
         signInAnonymously(auth).catch(err => {
-          setErrorInfo(`Error de Autenticación: ${err.code}`);
+          setErrorInfo(`Error de Autenticación: ${err.code}. Verifica las restricciones de la API Key en Google Cloud.`);
         });
       }
     });
     return () => unsubscribe();
   }, []);
 
-  // Datos en tiempo real
+  // Escuchar cambios en la base de datos
   useEffect(() => {
     if (!user) return;
     const q = collection(db, 'retos', appId, 'participantes');
@@ -120,7 +121,7 @@ export default function App() {
     } catch (e) { showToast('Error'); }
   };
 
-  // Ranking (Re-verificado)
+  // Lógica del Ranking (Corregida)
   const rankingData = useMemo(() => {
     return participants.filter(p => p.weeklyData?.length >= 2).map(p => {
       const sorted = [...p.weeklyData].sort((a,b)=>a.week-b.week);
@@ -165,7 +166,7 @@ export default function App() {
     <div className="h-screen flex flex-col items-center justify-center font-black text-slate-800 bg-[#f8fafc] p-10 text-center">
       <div className="text-5xl mb-6 animate-bounce">🔥</div>
       <div className="animate-pulse text-2xl tracking-tighter italic uppercase mb-4">Sincronizando...</div>
-      {errorInfo && <div className="bg-red-50 text-red-600 p-4 rounded-2xl border border-red-100 text-sm font-bold max-w-sm">{errorInfo}</div>}
+      {errorInfo && <div className="bg-red-50 text-red-600 p-6 rounded-2xl border border-red-100 text-sm font-bold max-w-sm">{errorInfo}</div>}
     </div>
   );
 
@@ -201,7 +202,7 @@ export default function App() {
                         <th key={i} className={`p-4 border-l border-slate-100 min-w-[300px] ${(i+1)%4===0?'bg-blue-50/50':''}`}>
                           <div className="text-slate-800 text-xs mb-3 font-black uppercase">Semana {i+1} {(i+1)%4===0?'🔵':''}</div>
                           <div className="flex gap-1 opacity-60 font-bold tracking-tight">
-                            <span className="flex-1">Kg</span><span className="flex-1">Cuello</span><span className="flex-1">Cint</span><span className="flex-1">Cad</span><span className="flex-1 text-blue-600 font-black">Grasa %</span>
+                            <span className="flex-1">Kg</span><span className="flex-1">Cuel</span><span className="flex-1">Cint</span><span className="flex-1">Cad</span><span className="flex-1 text-blue-600 font-black">Grasa %</span>
                           </div>
                         </th>
                       ))}
@@ -287,8 +288,8 @@ export default function App() {
       </div>
 
       {modalState.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xl z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3.5rem] p-12 w-full max-w-md shadow-2xl border border-white/20 animate-in zoom-in-95 duration-200 text-slate-900">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xl z-50 flex items-center justify-center p-4 text-slate-900">
+          <div className="bg-white rounded-[3.5rem] p-12 w-full max-w-md shadow-2xl border border-white/20 animate-in zoom-in-95 duration-200">
             <h3 className="text-3xl font-black mb-8 tracking-tighter uppercase italic">{modalState.type==='add'?'👤 NUEVO':'✏️ PERFIL'}</h3>
             {modalState.type !== 'delete' ? (
               <div className="space-y-6 mb-10 text-slate-900">
@@ -301,7 +302,7 @@ export default function App() {
               </div>
             ) : <p className="mb-10 text-slate-500 font-bold text-xl text-center leading-tight tracking-tight">¿Eliminar a <b>{modalState.data.playerName}</b>?</p>}
             <div className="flex gap-4">
-              <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-300 hover:bg-slate-50 transition-colors uppercase tracking-widest text-[10px]">CANCELAR</button>
+              <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest text-[10px]">CANCELAR</button>
               <button onClick={confirmAction} className={`flex-1 p-5 rounded-2xl font-black text-white shadow-xl uppercase tracking-widest text-[10px] ${modalState.type==='delete'?'bg-red-500 shadow-red-100':'bg-blue-600 shadow-blue-100'}`}>CONFIRMAR</button>
             </div>
           </div>
