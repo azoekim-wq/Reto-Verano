@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// 1. CONFIGURACIÓN (Extraída de tu captura de pantalla)
+// 1. CONFIGURACIÓN FIREBASE (Copiada de tu captura)
 const firebaseConfig = {
   apiKey: "AIzaSyD-BUO7VCx64Eq8-VyXt4ZEIP1AY_tr-JA",
   authDomain: "reto-verano-46f08.firebaseapp.com",
@@ -14,7 +14,6 @@ const firebaseConfig = {
   measurementId: "G-0XQSP6LJF0"
 };
 
-// Inicialización segura
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -23,7 +22,6 @@ const appId = 'reto-verano-2024';
 const TOTAL_WEEKS = 16;
 const COLORS = ["#4f6ef7", "#f56565", "#ed8936", "#48bb78", "#9f7aea", "#38b2ac", "#ed64a6", "#667eea", "#fc8181", "#4fd1c5"];
 
-// Cálculo del % de Grasa Corporal
 const calculateBFP = (gender, height, neck, waist, hip) => {
   if (!height || !neck || !waist) return null;
   const h = parseFloat(height);
@@ -51,36 +49,33 @@ export default function App() {
   const [modalState, setModalState] = useState({ isOpen: false, type: '', data: null });
   const [form, setForm] = useState({ name: '', gender: 'M', age: '', height: '' });
 
-  // Escuchar estado de autenticación
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       if (u) {
         setUser(u);
       } else {
         signInAnonymously(auth).catch(err => {
-          setErrorInfo(`Error de Autenticación: ${err.code}. Verifica las restricciones de la API Key en Google Cloud.`);
+          setErrorInfo(`Error Auth: ${err.code}. Revisa el Paso 4.`);
         });
       }
     });
     return () => unsubscribe();
   }, []);
 
-  // Escuchar cambios en la base de datos
   useEffect(() => {
     if (!user) return;
     const q = collection(db, 'retos', appId, 'participantes');
-    const unsubscribe = onSnapshot(q, 
+    return onSnapshot(q, 
       (snap) => {
         const docs = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
         setParticipants(docs.sort((a,b) => (parseInt(a.id?.replace('p','')) || 0) - (parseInt(b.id?.replace('p','')) || 0)));
         setLoading(false);
       }, 
       (err) => {
-        setErrorInfo(`Error de Base de Datos: ${err.code}`);
+        setErrorInfo(`Error DB: ${err.code}`);
         setLoading(false);
       }
     );
-    return () => unsubscribe();
   }, [user]);
 
   const showToast = (msg) => {
@@ -121,7 +116,6 @@ export default function App() {
     } catch (e) { showToast('Error'); }
   };
 
-  // Lógica del Ranking (Corregida)
   const rankingData = useMemo(() => {
     return participants.filter(p => p.weeklyData?.length >= 2).map(p => {
       const sorted = [...p.weeklyData].sort((a,b)=>a.week-b.week);
@@ -163,24 +157,23 @@ export default function App() {
   }, [participants]);
 
   if (loading) return (
-    <div className="h-screen flex flex-col items-center justify-center font-black text-slate-800 bg-[#f8fafc] p-10 text-center">
-      <div className="text-5xl mb-6 animate-bounce">🔥</div>
-      <div className="animate-pulse text-2xl tracking-tighter italic uppercase mb-4">Sincronizando...</div>
-      {errorInfo && <div className="bg-red-50 text-red-600 p-6 rounded-2xl border border-red-100 text-sm font-bold max-w-sm">{errorInfo}</div>}
+    <div className="h-screen flex flex-col items-center justify-center font-black text-slate-800 bg-[#f8fafc] p-10 text-center uppercase italic tracking-tighter">
+      <div className="text-6xl mb-6 animate-bounce">🔥</div>
+      <div className="animate-pulse text-2xl mb-4">Sincronizando v2.0...</div>
+      {errorInfo && <div className="bg-red-50 text-red-600 p-4 rounded-2xl border border-red-100 text-sm font-bold max-w-sm">{errorInfo}</div>}
     </div>
   );
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 pb-24 font-sans text-slate-900">
       <div className="max-w-[1500px] mx-auto space-y-6">
-        
         <header className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
           <h1 className="text-3xl font-black tracking-tighter italic flex items-center gap-3">
-            <span className="text-orange-500">🔥</span> RETO VERANO
+            <span className="text-orange-500">🔥</span> RETO VERANO <span className="text-[10px] bg-slate-100 px-2 py-1 rounded-full not-italic tracking-normal opacity-30">v2.0</span>
           </h1>
           <div className="flex bg-slate-100 p-1.5 rounded-2xl">
             {['data','ranking'].map(t => (
-              <button key={t} onClick={()=>setActiveTab(t)} className={`px-10 py-3 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab===t ? 'bg-white text-blue-600 shadow-md scale-105' : 'text-slate-400'}`}>
+              <button key={t} onClick={()=>setActiveTab(t)} className={`px-10 py-3 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab===t ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400'}`}>
                 {t==='data'?'Registro':'Ranking'}
               </button>
             ))}
@@ -189,7 +182,7 @@ export default function App() {
 
         {activeTab === 'data' && (
           <div className="space-y-4">
-            <button onClick={()=> { setForm({name:'', gender:'M', age:'', height:''}); setModalState({isOpen:true, type:'add'}); }} className="bg-blue-600 text-white px-10 py-5 rounded-[2rem] font-black shadow-xl hover:bg-blue-700 transition-all active:scale-95 text-sm uppercase tracking-widest">
+            <button onClick={()=> { setForm({name:'', gender:'M', age:'', height:''}); setModalState({isOpen:true, type:'add'}); }} className="bg-blue-600 text-white px-10 py-5 rounded-[2rem] font-black shadow-xl hover:bg-blue-700 transition-all text-sm uppercase tracking-widest">
               ➕ AÑADIR JUGADOR
             </button>
             <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
@@ -200,9 +193,9 @@ export default function App() {
                       <th className="p-6 w-64 sticky left-0 bg-slate-50 z-20 text-left font-black">Participante</th>
                       {Array.from({length:16}).map((_,i)=>(
                         <th key={i} className={`p-4 border-l border-slate-100 min-w-[300px] ${(i+1)%4===0?'bg-blue-50/50':''}`}>
-                          <div className="text-slate-800 text-xs mb-3 font-black uppercase">Semana {i+1} {(i+1)%4===0?'🔵':''}</div>
+                          <div className="text-slate-800 text-xs mb-3 font-black uppercase tracking-tight">Semana {i+1} {(i+1)%4===0?'🔵':''}</div>
                           <div className="flex gap-1 opacity-60 font-bold tracking-tight">
-                            <span className="flex-1">Kg</span><span className="flex-1">Cuel</span><span className="flex-1">Cint</span><span className="flex-1">Cad</span><span className="flex-1 text-blue-600 font-black">Grasa %</span>
+                            <span className="flex-1 text-center">Kg</span><span className="flex-1 text-center">Cuello</span><span className="flex-1 text-center">Cint</span><span className="flex-1 text-center">Cad</span><span className="flex-1 text-blue-600 text-center font-black">Grasa %</span>
                           </div>
                         </th>
                       ))}
@@ -214,7 +207,7 @@ export default function App() {
                         <td className="p-6 sticky left-0 bg-white group-hover:bg-slate-50 z-10">
                           <div className="flex items-center justify-between">
                             <div onClick={()=> { setForm({name:p.name, gender:p.gender, age:p.age, height:p.height}); setModalState({isOpen:true, type:'edit', data:{docId:p.docId, ...p}}); }} className="cursor-pointer">
-                              <div className="font-black text-xl flex items-center gap-2 tracking-tighter hover:text-blue-600 transition-colors"><div className="w-3 h-3 rounded-full shadow-sm" style={{background:p.color}}></div>{p.name}</div>
+                              <div className="font-black text-xl flex items-center gap-2 tracking-tighter hover:text-blue-600 text-slate-900 transition-colors"><div className="w-3 h-3 rounded-full shadow-sm" style={{background:p.color}}></div>{p.name}</div>
                               <div className="text-[10px] font-bold opacity-30 uppercase ml-5 mt-1">{p.gender==='M'?'Hombre':'Mujer'} · {p.height}cm</div>
                             </div>
                             <button onClick={()=>setModalState({isOpen:true, type:'delete', data:{docId:p.docId, playerName:p.name}})} className="opacity-0 group-hover:opacity-100 text-red-200 hover:text-red-500 transition-opacity">🗑️</button>
@@ -263,7 +256,7 @@ export default function App() {
 
         {activeTab === 'ranking' && (
           <div className="bg-white rounded-[3rem] p-10 border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-4xl font-black mb-10 tracking-tighter italic flex items-center gap-4">🏆 CLASIFICACIÓN</h2>
+            <h2 className="text-4xl font-black mb-10 tracking-tighter italic flex items-center gap-4 text-slate-900">🏆 CLASIFICACIÓN</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="text-slate-300 font-black text-[10px] uppercase tracking-[0.25em] border-b border-slate-100">
@@ -273,7 +266,7 @@ export default function App() {
                   {rankingData.map((r,i) => (
                     <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50 transition-all group">
                       <td className="p-6 text-5xl font-black italic text-slate-100 group-hover:text-slate-200 transition-colors">{i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
-                      <td className="p-6"><div className="flex items-center gap-4 font-black text-2xl tracking-tighter"><span className="w-4 h-4 rounded-full shadow-md" style={{background:r.color}}></span>{r.name}</div></td>
+                      <td className="p-6"><div className="flex items-center gap-4 font-black text-2xl tracking-tighter text-slate-900"><span className="w-4 h-4 rounded-full shadow-md" style={{background:r.color}}></span>{r.name}</div></td>
                       <td className="p-6 text-center text-green-500 font-black text-xl tracking-tight">-{r.wLoss.toFixed(1)}kg</td>
                       <td className="p-6 text-center text-green-500 font-black text-xl tracking-tight">-{r.fLoss.toFixed(1)}%</td>
                       <td className="p-6 text-center font-bold text-slate-300 group-hover:text-blue-500 transition-colors tracking-tight">{r.maxS} semanas</td>
@@ -288,21 +281,21 @@ export default function App() {
       </div>
 
       {modalState.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xl z-50 flex items-center justify-center p-4 text-slate-900">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xl z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-[3.5rem] p-12 w-full max-w-md shadow-2xl border border-white/20 animate-in zoom-in-95 duration-200">
             <h3 className="text-3xl font-black mb-8 tracking-tighter uppercase italic">{modalState.type==='add'?'👤 NUEVO':'✏️ PERFIL'}</h3>
             {modalState.type !== 'delete' ? (
               <div className="space-y-6 mb-10 text-slate-900">
-                <input type="text" placeholder="Nombre" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none focus:ring-4 ring-blue-500/10 focus:bg-white transition-all shadow-sm" />
+                <input type="text" placeholder="Nombre" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none focus:ring-4 ring-blue-500/10 focus:bg-white transition-all shadow-sm text-slate-900" />
                 <div className="grid grid-cols-2 gap-6">
-                  <select value={form.gender} onChange={e=>setForm({...form, gender: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none cursor-pointer"><option value="M">Hombre</option><option value="F">Mujer</option></select>
-                  <input type="number" placeholder="Edad" value={form.age} onChange={e=>setForm({...form, age: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none shadow-sm" />
+                  <select value={form.gender} onChange={e=>setForm({...form, gender: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none cursor-pointer text-slate-900"><option value="M">Hombre</option><option value="F">Mujer</option></select>
+                  <input type="number" placeholder="Edad" value={form.age} onChange={e=>setForm({...form, age: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none shadow-sm text-slate-900" />
                 </div>
-                <input type="number" placeholder="Altura (cm)" value={form.height} onChange={e=>setForm({...form, height: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none shadow-sm" />
+                <input type="number" placeholder="Altura (cm)" value={form.height} onChange={e=>setForm({...form, height: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none shadow-sm text-slate-900" />
               </div>
             ) : <p className="mb-10 text-slate-500 font-bold text-xl text-center leading-tight tracking-tight">¿Eliminar a <b>{modalState.data.playerName}</b>?</p>}
             <div className="flex gap-4">
-              <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest text-[10px]">CANCELAR</button>
+              <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-300 hover:bg-slate-50 transition-colors uppercase tracking-widest text-[10px]">CANCELAR</button>
               <button onClick={confirmAction} className={`flex-1 p-5 rounded-2xl font-black text-white shadow-xl uppercase tracking-widest text-[10px] ${modalState.type==='delete'?'bg-red-500 shadow-red-100':'bg-blue-600 shadow-blue-100'}`}>CONFIRMAR</button>
             </div>
           </div>
