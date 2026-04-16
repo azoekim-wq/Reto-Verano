@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// 1. CONFIGURACIÓN FIREBASE (Exacta a tu proyecto)
+// 1. CONFIGURACIÓN FIREBASE (Copiada de tu proyecto Reto Verano)
 const firebaseConfig = {
   apiKey: "AIzaSyD-BUO7VCx64Eq8-VyXt4ZEIP1AY_tr-JA",
   authDomain: "reto-verano-46f08.firebaseapp.com",
@@ -19,9 +19,9 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = 'reto-verano-2024';
 
-const TOTAL_WEEKS = 16;
 const COLORS = ["#4f6ef7", "#f56565", "#ed8936", "#48bb78", "#9f7aea", "#38b2ac", "#ed64a6", "#667eea", "#fc8181", "#4fd1c5"];
 
+// Cálculo de % Grasa Corporal
 const calculateBFP = (gender, height, neck, waist, hip) => {
   if (!height || !neck || !waist) return null;
   const h = parseFloat(height);
@@ -48,19 +48,21 @@ export default function App() {
   const [modalState, setModalState] = useState({ isOpen: false, type: '', data: null });
   const [form, setForm] = useState({ name: '', gender: 'M', age: '', height: '' });
 
+  // Autenticación Anónima
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       if (u) {
         setUser(u);
       } else {
         signInAnonymously(auth).catch(err => {
-          setErrorInfo(`Error de Llave: ${err.code}. Asegúrate de habilitar la 'Identity Toolkit API' en Google Cloud (Paso 1).`);
+          setErrorInfo(`Error: ${err.code}. Revisa el Paso 1 del manual.`);
         });
       }
     });
     return () => unsub();
   }, []);
 
+  // Escuchar Firestore
   useEffect(() => {
     if (!user) return;
     const q = collection(db, 'retos', appId, 'participantes');
@@ -69,7 +71,7 @@ export default function App() {
       setParticipants(docs.sort((a,b) => (parseInt(a.id?.replace('p','')) || 0) - (parseInt(b.id?.replace('p','')) || 0)));
       setLoading(false);
     }, (err) => {
-      setErrorInfo(`Error Firestore: ${err.code}. Revisa las reglas de la base de datos.`);
+      setErrorInfo(`Error Firestore: ${err.code}`);
       setLoading(false);
     });
   }, [user]);
@@ -90,7 +92,7 @@ export default function App() {
         weeklyData: newData.filter(w => Object.keys(w).length > 1).sort((a,b)=>a.week-b.week) 
       });
       showToast('Guardado ✓');
-    } catch (e) { showToast('Error'); }
+    } catch (e) { showToast('Error al guardar'); }
   };
 
   const confirmAction = async () => {
@@ -107,40 +109,51 @@ export default function App() {
         await updateDoc(doc(db, 'retos', appId, 'participantes', id), { ...form });
       }
       setModalState({ isOpen: false });
-      showToast('Hecho ✨');
+      showToast('¡Éxito! ✨');
     } catch (e) { showToast('Error'); }
   };
 
+  // Lógica del Ranking (v2.5 - Sin errores)
   const rankingData = useMemo(() => {
     return participants.filter(p => p.weeklyData?.length >= 2).map(p => {
       const sorted = [...p.weeklyData].sort((a,b)=>a.week-b.week);
-      const fItem = sorted.find(w => w.weight && calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip));
-      const lItem = [...sorted].reverse().find(w => w.weight && calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip));
-      if (!fItem || !lItem || fItem.week === lItem.week) return { ...p, score: 0, isUnranked: true };
-      const b1 = calculateBFP(p.gender, p.height, fItem.neck, fItem.waist, fItem.hip) || 0;
-      const b2 = calculateBFP(p.gender, p.height, lItem.neck, lItem.waist, lItem.hip) || 0;
-      const wLoss = Math.max(0, (fItem.weight || 0) - (lItem.weight || 0));
-      const fLoss = Math.max(0, b1 - b2);
-      let streakM = 0, streakC = 0, lastWeight = fItem.weight, lastBfp = b1;
-      sorted.slice(sorted.indexOf(fItem) + 1).forEach(w => {
+      const start = sorted.find(w => w.weight && calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip));
+      const end = [...sorted].reverse().find(w => w.weight && calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip));
+      
+      if (!start || !end || start.week === end.week) return { ...p, score: 0, unranked: true };
+
+      const bStart = calculateBFP(p.gender, p.height, start.neck, start.waist, start.hip) || 0;
+      const bEnd = calculateBFP(p.gender, p.height, end.neck, end.waist, end.hip) || 0;
+      const pesoPerdido = Math.max(0, (start.weight || 0) - (end.weight || 0));
+      const grasaPerdida = Math.max(0, bStart - bEnd);
+      
+      let maxRacha = 0, rachaActual = 0, wAnterior = start.weight, bAnterior = bStart;
+      sorted.slice(sorted.indexOf(start) + 1).forEach(w => {
         const b = calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip);
-        let win = false;
-        if (w.weight && lastWeight && w.weight < lastWeight) win = true;
-        if (b && lastBfp && b < lastBfp) win = true;
-        if (win) { streakC++; if (streakC > streakM) streakM = streakC; }
-        else if (w.weight || b) streakC = 0;
-        if (w.weight) lastWeight = w.weight; if (b) lastBfp = b;
+        let mejora = false;
+        if (w.weight && wAnterior && w.weight < wAnterior) mejora = true;
+        if (b && bAnterior && b < bAnterior) mejora = true;
+
+        if (mejora) { 
+          rachaActual++; 
+          if (rachaActual > maxRacha) maxRacha = rachaActual; 
+        } else if (w.weight || b) {
+          rachaActual = 0;
+        }
+        if (w.weight) wAnterior = w.weight; 
+        if (b) bAnterior = b;
       });
-      const total = (wLoss * 2) + (fLoss * 3) + (streakM * 2);
-      return { ...p, wLoss, fLoss, streakM, score: total.toFixed(1) };
-    }).filter(p => !p.isUnranked).sort((a,b) => b.score - a.score);
+
+      const total = (pesoPerdido * 2) + (grasaPerdida * 3) + (maxRacha * 2);
+      return { ...p, pesoPerdido, grasaPerdida, maxRacha, score: total.toFixed(1) };
+    }).filter(p => !p.unranked).sort((a,b) => b.score - a.score);
   }, [participants]);
 
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center font-black text-slate-800 bg-[#f8fafc] p-10 text-center uppercase italic tracking-tighter">
-      <div className="text-6xl mb-6 animate-bounce text-orange-500">🔥</div>
-      <div className="animate-pulse text-2xl mb-4">Cargando v2.4...</div>
-      {errorInfo && <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 text-sm font-bold max-w-sm shadow-sm">{errorInfo}</div>}
+      <div className="text-6xl mb-6 animate-bounce text-blue-600">🔥</div>
+      <div className="animate-pulse text-2xl mb-4">Iniciando v2.5...</div>
+      {errorInfo && <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 text-sm font-bold max-w-sm shadow-sm leading-relaxed">{errorInfo}</div>}
     </div>
   );
 
@@ -149,7 +162,7 @@ export default function App() {
       <div className="max-w-[1600px] mx-auto space-y-6">
         <header className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
           <h1 className="text-3xl font-black tracking-tighter italic flex items-center gap-3">
-            <span className="text-orange-500">🔥</span> RETO VERANO <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded-full not-italic tracking-normal font-black uppercase">v2.4</span>
+            <span className="text-blue-600">🔥</span> RETO VERANO <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded-full not-italic tracking-normal">v2.5</span>
           </h1>
           <div className="flex bg-slate-100 p-1.5 rounded-2xl">
             {['data','ranking'].map(t => (
@@ -173,7 +186,7 @@ export default function App() {
                       <th className="p-6 w-64 sticky left-0 bg-slate-50 z-20 text-left font-black">Participante</th>
                       {Array.from({length:16}).map((_,i)=>(
                         <th key={i} className={`p-4 border-l border-slate-100 min-w-[320px] ${(i+1)%4===0?'bg-blue-50/50':''}`}>
-                          <div className="text-slate-800 text-xs mb-3 font-black uppercase tracking-tight">Semana {i+1} {(i+1)%4===0?'🔵':''}</div>
+                          <div className="text-slate-800 text-xs mb-3 font-black uppercase tracking-tight italic">Semana {i+1} {(i+1)%4===0?'🔵':''}</div>
                           <div className="flex gap-1 opacity-60 font-bold tracking-tight">
                             <span className="flex-1 text-center">Kg</span><span className="flex-1 text-center">Cuello</span><span className="flex-1 text-center">Cint</span><span className="flex-1 text-center">Cad</span><span className="flex-1 text-blue-600 text-center font-black">Grasa %</span>
                           </div>
@@ -199,7 +212,7 @@ export default function App() {
                           const bfp = calculateBFP(p.gender, p.height, wData.neck, wData.waist, wData.hip);
                           return (
                             <td key={i} className={`p-4 border-l border-slate-100 align-middle ${hito?'bg-blue-50/15':''}`}>
-                              <div className="flex flex-col gap-4 min-h-[120px] justify-center text-slate-900 font-black">
+                              <div className="flex flex-col gap-4 min-h-[120px] justify-center text-slate-900">
                                 <div className="grid grid-cols-5 gap-2 font-black">
                                   {['weight','neck','waist','hip'].map(f => (
                                     <input key={f} type="number" step="0.1" disabled={f==='hip'&&p.gender==='M'}
@@ -212,7 +225,7 @@ export default function App() {
                                   </div>
                                 </div>
                                 {hito && (
-                                  <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-blue-100/40">
+                                  <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-blue-100/40 font-black">
                                     {['arm', 'chest'].map(f => (
                                       <input key={f} type="number" step="0.5" defaultValue={wData[f]||''} placeholder={f==='arm'?'BRAZO':'PECHO'}
                                         onBlur={(e)=>handleDataChange(p, wNum, f, e.target.value)}
@@ -240,16 +253,16 @@ export default function App() {
             <div className="overflow-x-auto">
               <table className="w-full text-left font-black">
                 <thead className="text-slate-300 font-black text-[10px] uppercase tracking-[0.25em] border-b border-slate-100">
-                  <tr><th className="p-6 font-black">Pos</th><th className="p-6 font-black">Jugador</th><th className="p-6 text-center font-black">Peso Bajado</th><th className="p-6 text-center font-black">Grasa Bajada</th><th className="p-6 text-center font-black">Mejor Racha</th><th className="p-6 text-right font-black">Puntuación</th></tr>
+                  <tr><th className="p-6">Pos</th><th className="p-6">Jugador</th><th className="p-6 text-center">Peso Bajado</th><th className="p-6 text-center">Grasa Bajada</th><th className="p-6 text-center">Mejor Racha</th><th className="p-6 text-right font-black">Puntuación</th></tr>
                 </thead>
                 <tbody>
                   {rankingData.map((r,i) => (
                     <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50 transition-all group font-black">
                       <td className="p-6 text-5xl font-black italic text-slate-100 group-hover:text-slate-200 transition-colors">{i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
                       <td className="p-6"><div className="flex items-center gap-4 font-black text-2xl tracking-tighter text-slate-900"><span className="w-4 h-4 rounded-full shadow-md" style={{background:r.color}}></span>{r.name}</div></td>
-                      <td className="p-6 text-center text-green-500 font-black text-xl tracking-tight">-{r.wLoss.toFixed(1)}kg</td>
-                      <td className="p-6 text-center text-green-500 font-black text-xl tracking-tight">-{r.fLoss.toFixed(1)}%</td>
-                      <td className="p-6 text-center font-black text-slate-300 group-hover:text-blue-500 transition-colors tracking-tight">{r.streakM} semanas</td>
+                      <td className="p-6 text-center text-green-500 font-black text-xl tracking-tight">-{r.pesoPerdido.toFixed(1)}kg</td>
+                      <td className="p-6 text-center text-green-500 font-black text-xl tracking-tight">-{r.grasaPerdida.toFixed(1)}%</td>
+                      <td className="p-6 text-center font-bold text-slate-300 group-hover:text-blue-500 transition-colors tracking-tight">{r.maxRacha} semanas</td>
                       <td className="p-6 text-right text-5xl font-black text-slate-900 tracking-tighter tabular-nums">{r.score} <span className="text-xs opacity-20 uppercase tracking-widest font-bold ml-1">pts</span></td>
                     </tr>
                   ))}
@@ -266,16 +279,16 @@ export default function App() {
             <h3 className="text-3xl font-black mb-8 tracking-tighter uppercase italic">{modalState.type==='add'?'👤 NUEVO':'✏️ PERFIL'}</h3>
             {modalState.type !== 'delete' ? (
               <div className="space-y-6 mb-10 text-slate-900 font-black">
-                <input type="text" placeholder="Nombre" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-black outline-none focus:ring-4 ring-blue-500/10 focus:bg-white transition-all shadow-sm" />
+                <input type="text" placeholder="Nombre" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none focus:ring-4 ring-blue-500/10 focus:bg-white transition-all shadow-sm" />
                 <div className="grid grid-cols-2 gap-6">
-                  <select value={form.gender} onChange={e=>setForm({...form, gender: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-black outline-none cursor-pointer"><option value="M">Hombre</option><option value="F">Mujer</option></select>
+                  <select value={form.gender} onChange={e=>setForm({...form, gender: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none cursor-pointer"><option value="M">Hombre</option><option value="F">Mujer</option></select>
                   <input type="number" placeholder="Edad" value={form.age} onChange={e=>setForm({...form, age: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-black outline-none shadow-sm" />
                 </div>
-                <input type="number" placeholder="Altura (cm)" value={form.height} onChange={e=>setForm({...form, height: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-black outline-none shadow-sm" />
+                <input type="number" placeholder="Altura (cm)" value={form.height} onChange={e=>setForm({...form, height: e.target.value})} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none shadow-sm" />
               </div>
             ) : <p className="mb-10 text-slate-500 font-black text-xl text-center leading-tight tracking-tight text-slate-900">¿Eliminar a <b>{modalState.data.playerName}</b>?</p>}
             <div className="flex gap-4">
-              <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-300 hover:bg-slate-50 transition-colors uppercase tracking-widest text-[10px]">CANCELAR</button>
+              <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest text-[10px]">CANCELAR</button>
               <button onClick={confirmAction} className={`flex-1 p-5 rounded-2xl font-black text-white shadow-xl uppercase tracking-widest text-[10px] ${modalState.type==='delete'?'bg-red-500 shadow-red-100':'bg-blue-600 shadow-blue-100'}`}>CONFIRMAR</button>
             </div>
           </div>
