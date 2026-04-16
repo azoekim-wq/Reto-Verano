@@ -39,6 +39,7 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState('');
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [connError, setConnError] = useState(null);
   const [modalState, setModalState] = useState({ isOpen: false, type: '', data: null });
   
   const [inputName, setInputName] = useState('');
@@ -47,7 +48,10 @@ export default function App() {
   const [inputHeight, setInputHeight] = useState('');
 
   useEffect(() => {
-    signInAnonymously(auth).catch((err) => console.error("Auth fail:", err));
+    signInAnonymously(auth).catch((err) => {
+      console.error("Auth fail:", err);
+      setConnError("Error de autenticación: Verifica que el acceso Anónimo esté activado en Firebase.");
+    });
     return onAuthStateChanged(auth, setUser);
   }, []);
 
@@ -58,8 +62,10 @@ export default function App() {
       const data = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
       setParticipants(data.sort((a,b) => (parseInt(a.id?.replace('p','')) || 0) - (parseInt(b.id?.replace('p','')) || 0)));
       setLoading(false);
+      setConnError(null);
     }, (err) => {
       console.error("Snapshot error:", err);
+      setConnError("Error de permisos: Revisa las Reglas de Firestore en tu consola de Firebase.");
       setLoading(false);
     });
     return () => unsubscribe();
@@ -94,8 +100,8 @@ export default function App() {
       else if (modalState.type === 'add') await setDoc(doc(db, 'retos', appId, 'participantes', id), { id, color: COLORS[participants.length % COLORS.length], weeklyData: [], ...payload });
       else await updateDoc(doc(db, 'retos', appId, 'participantes', id), payload);
       setModalState({ isOpen: false });
-      showToast('¡Éxito! ✨');
-    } catch (e) { showToast('Error ❌'); }
+      showToast('¡Hecho! ✨');
+    } catch (e) { showToast('Error al guardar ❌'); }
   };
 
   const rankingData = useMemo(() => {
@@ -113,13 +119,18 @@ export default function App() {
       let maxS = 0, currS = 0, pW = first.weight, pF = bfp1;
       sorted.slice(sorted.indexOf(first)+1).forEach(w => {
         const b = calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip);
-        let improved = false;
-        if (w.weight && pW && w.weight < pW) improved = true;
-        if (b && pF && b < pF) improved = true;
+        let imp = false;
+        if (w.weight && pW && w.weight < pW) imp = true;
+        if (b && pF && b < pF) imp = true;
 
-        if (improved) { currS++; maxS = Math.max(maxS, currS); }
-        else if (w.weight || b) currS = 0;
-        if (w.weight) pW = w.weight; if (b) pF = b;
+        if (imp) { 
+          currS++; 
+          maxS = Math.max(maxS, currS); 
+        } else if (w.weight || b) {
+          currS = 0;
+        }
+        if (w.weight) pW = w.weight; 
+        if (b) pF = b;
       });
 
       const scoreCalc = (wLoss * 2) + (fLoss * 3) + (maxS * 2);
@@ -128,7 +139,12 @@ export default function App() {
     return { ranked, unranked: participants.filter(p => !ranked.find(r => r.id === p.id)) };
   }, [participants]);
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-slate-300 animate-pulse text-2xl tracking-tighter italic uppercase text-center p-10">Sincronizando con la Nube...</div>;
+  if (loading) return (
+    <div className="h-screen flex flex-col items-center justify-center font-black text-slate-400 p-10 text-center">
+      <div className="animate-pulse text-2xl tracking-tighter italic uppercase mb-4">Sincronizando con la Nube...</div>
+      {connError && <div className="text-red-500 text-sm max-w-xs">{connError}</div>}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 pb-24 font-sans">
@@ -261,7 +277,7 @@ export default function App() {
               </div>
             ) : <p className="mb-10 text-slate-500 font-bold text-xl text-center leading-tight tracking-tight">¿Eliminar a <b>{modalState.data.playerName}</b>?</p>}
             <div className="flex gap-4">
-              <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-300 hover:bg-slate-50 transition-colors uppercase tracking-widest text-[10px]">CANCELAR</button>
+              <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest text-[10px]">CANCELAR</button>
               <button onClick={confirmAction} className={`flex-1 p-5 rounded-2xl font-black text-white shadow-xl uppercase tracking-widest text-[10px] ${modalState.type==='delete'?'bg-red-500 shadow-red-100':'bg-blue-600 shadow-blue-100'}`}>CONFIRMAR</button>
             </div>
           </div>
