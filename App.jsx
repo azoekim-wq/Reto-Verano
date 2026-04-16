@@ -40,53 +40,94 @@ const calculateBFP = (gender, height, neck, waist, hip) => {
   }
 };
 
-// Componente para la Gráfica (SVG Nativo sin librerías externas)
-const LineChart = ({ data, dataKey, color, label }) => {
-  const validData = data.filter(d => d[dataKey] != null);
-  if (validData.length < 1) return <div className="p-10 text-center text-slate-400 italic">Faltan datos para generar la gráfica de {label}.</div>;
-  
-  const values = validData.map(d => d[dataKey]);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  // Damos un pequeño margen arriba y abajo para que la línea no toque los bordes
+// Componente de Gráfica Multi-Jugador
+const MultiLineChart = ({ participants, dataKey, label, isBfp = false }) => {
+  // 1. Extraer puntos válidos
+  let allValues = [];
+  const lines = participants.map(p => {
+    const pPoints = [];
+    (p.weeklyData || []).forEach(w => {
+      let val = null;
+      if (isBfp) val = calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip);
+      else val = w[dataKey];
+      
+      if (val != null) {
+        pPoints.push({ week: w.week, value: val });
+        allValues.push(val);
+      }
+    });
+    return { id: p.id, color: p.color, points: pPoints.sort((a,b)=>a.week-b.week) };
+  }).filter(line => line.points.length > 0);
+
+  if (lines.length === 0) return (
+    <div className="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm w-full text-center text-slate-400 font-bold italic">
+      Aún no hay suficientes datos registrados para generar la gráfica de {label}.
+    </div>
+  );
+
+  const min = Math.min(...allValues);
+  const max = Math.max(...allValues);
   const range = (max - min) || 1; 
-  const paddedMin = min - (range * 0.1);
-  const paddedMax = max + (range * 0.1);
+  const paddedMin = min - (range * 0.15);
+  const paddedMax = max + (range * 0.15);
   const paddedRange = paddedMax - paddedMin;
 
   const width = 800;
-  const height = 250;
+  const height = 280;
   const paddingX = 40;
   const paddingY = 40;
 
-  const points = validData.map((d, i) => {
-    const x = paddingX + (i / (validData.length - 1 || 1)) * (width - paddingX * 2);
-    const y = height - paddingY - ((d[dataKey] - paddedMin) / paddedRange) * (height - paddingY * 2);
-    return `${x},${y}`;
-  });
+  // Encontrar todas las semanas únicas para las líneas de la cuadrícula
+  const allWeeks = Array.from(new Set(lines.flatMap(l => l.points.map(p => p.week)))).sort((a,b)=>a-b);
+  const minWeek = Math.min(...allWeeks, 1);
+  const maxWeek = Math.max(...allWeeks, 16);
+  const weekRange = Math.max(maxWeek - minWeek, 1);
 
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm w-full overflow-x-auto">
-      <h3 className="text-xl font-black text-slate-800 mb-4">{label}</h3>
+      <h3 className="text-xl font-black text-slate-800 mb-6">{label}</h3>
       <div className="min-w-[600px]">
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
-          {/* Grid lines */}
+          
+          {/* Líneas horizontales de guía (Grid Y) */}
+          <line x1={paddingX} y1={paddingY} x2={width - paddingX} y2={paddingY} stroke="#f1f5f9" strokeWidth="1" />
+          <line x1={paddingX} y1={height/2} x2={width - paddingX} y2={height/2} stroke="#f1f5f9" strokeWidth="1" />
           <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} stroke="#e2e8f0" strokeWidth="2" />
           
-          {/* Path */}
-          {validData.length > 1 && (
-            <polyline fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" points={points.join(' ')} className="drop-shadow-md" />
-          )}
-
-          {/* Data Points */}
-          {validData.map((d, i) => {
-            const x = paddingX + (i / (validData.length - 1 || 1)) * (width - paddingX * 2);
-            const y = height - paddingY - ((d[dataKey] - paddedMin) / paddedRange) * (height - paddingY * 2);
+          {/* Líneas verticales y Etiquetas de Semana (Grid X) */}
+          {allWeeks.map(w => {
+            const x = paddingX + ((w - minWeek) / weekRange) * (width - paddingX * 2);
             return (
-              <g key={d.week}>
-                <circle cx={x} cy={y} r="6" fill={color} stroke="#ffffff" strokeWidth="2" className="drop-shadow-sm" />
-                <text x={x} y={y - 15} textAnchor="middle" fontSize="14" fill="#1e293b" fontWeight="900">{d[dataKey].toFixed(1)}</text>
-                <text x={x} y={height - 15} textAnchor="middle" fontSize="12" fill="#64748b" fontWeight="bold">S{d.week}</text>
+              <g key={`grid-${w}`}>
+                <line x1={x} y1={paddingY} x2={x} y2={height - paddingY} stroke="#f8fafc" strokeWidth="1" />
+                <text x={x} y={height - paddingY + 20} textAnchor="middle" fontSize="12" fill="#94a3b8" fontWeight="black">S{w}</text>
+              </g>
+            );
+          })}
+
+          {/* Dibujar Líneas y Puntos por Participante */}
+          {lines.map(line => {
+            const polylinePoints = line.points.map(pt => {
+              const x = paddingX + ((pt.week - minWeek) / weekRange) * (width - paddingX * 2);
+              const y = height - paddingY - ((pt.value - paddedMin) / paddedRange) * (height - paddingY * 2);
+              return `${x},${y}`;
+            });
+
+            return (
+              <g key={`line-${line.id}`}>
+                {line.points.length > 1 && (
+                  <polyline fill="none" stroke={line.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={polylinePoints.join(' ')} opacity="0.8" className="drop-shadow-sm" />
+                )}
+                {line.points.map(pt => {
+                  const x = paddingX + ((pt.week - minWeek) / weekRange) * (width - paddingX * 2);
+                  const y = height - paddingY - ((pt.value - paddedMin) / paddedRange) * (height - paddingY * 2);
+                  return (
+                    <g key={`pt-${line.id}-${pt.week}`}>
+                      <circle cx={x} cy={y} r="5" fill={line.color} stroke="#ffffff" strokeWidth="2" className="drop-shadow-sm" />
+                      <text x={x} y={y - 12} textAnchor="middle" fontSize="11" fill={line.color} fontWeight="900" className="drop-shadow-md">{pt.value.toFixed(1)}</text>
+                    </g>
+                  );
+                })}
               </g>
             );
           })}
@@ -105,9 +146,6 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState('');
   const [modalState, setModalState] = useState({ isOpen: false, type: '', data: null });
   const [form, setForm] = useState({ name: '', gender: 'M', age: '', height: '' });
-  
-  // Estado para la pestaña de Gráficas
-  const [selectedGraphUser, setSelectedGraphUser] = useState('');
 
   // 🌟 TRUCO MAGICO: Inyectar Tailwind CSS
   useEffect(() => {
@@ -139,13 +177,12 @@ export default function App() {
       const docs = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
       const sorted = docs.sort((a,b) => (parseInt(a.id?.replace('p','')) || 0) - (parseInt(b.id?.replace('p','')) || 0));
       setParticipants(sorted);
-      if (sorted.length > 0 && !selectedGraphUser) setSelectedGraphUser(sorted[0].id);
       setLoading(false);
     }, (err) => {
       setErrorInfo(`Error Firestore: ${err.code}.`);
       setLoading(false);
     });
-  }, [user, selectedGraphUser]);
+  }, [user]);
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -212,22 +249,11 @@ export default function App() {
     }).filter(p => !p.isUnranked).sort((a,b) => b.score - a.score);
   }, [participants]);
 
-  // Preparar datos para la pestaña de gráficas
-  const graphData = useMemo(() => {
-    if (!selectedGraphUser) return [];
-    const p = participants.find(p => p.id === selectedGraphUser);
-    if (!p || !p.weeklyData) return [];
-    return p.weeklyData.sort((a,b)=>a.week-b.week).map(w => ({
-      week: w.week,
-      weight: w.weight,
-      bfp: calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip)
-    }));
-  }, [participants, selectedGraphUser]);
 
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center font-black text-slate-800 bg-[#f8fafc] p-10 text-center uppercase italic tracking-tighter">
       <div className="text-6xl mb-6 animate-bounce text-emerald-500">🔥</div>
-      <div className="animate-pulse text-2xl mb-4">Cargando v3.1...</div>
+      <div className="animate-pulse text-2xl mb-4">Cargando v3.2...</div>
       {errorInfo && <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 text-sm font-bold max-w-sm shadow-sm">{errorInfo}</div>}
     </div>
   );
@@ -244,7 +270,7 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-3xl md:text-4xl font-black tracking-tighter italic text-slate-900">
-                RETO VERANO <span className="text-[12px] bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full not-italic tracking-normal font-bold uppercase align-middle ml-2">PRO v3.1</span>
+                RETO VERANO <span className="text-[12px] bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full not-italic tracking-normal font-bold uppercase align-middle ml-2">PRO v3.2</span>
               </h1>
               <p className="text-slate-400 font-bold text-sm tracking-tight mt-1">16 Semanas de Transformación</p>
             </div>
@@ -354,46 +380,42 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 2: GRÁFICAS (NUEVA PESTAÑA) */}
+        {/* TAB 2: GRÁFICAS (TODOS LOS JUGADORES A LA VEZ) */}
         {activeTab === 'graphs' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white rounded-[2.5rem] p-6 md:p-10 border border-slate-200 shadow-sm flex flex-col md:flex-row gap-6 items-center justify-between">
+            <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-slate-200 shadow-sm flex flex-col gap-6">
               <div>
-                <h2 className="text-3xl font-black tracking-tighter italic text-slate-900">📈 EVOLUCIÓN</h2>
-                <p className="text-slate-500 font-bold text-sm">Selecciona un participante para ver su progreso</p>
+                <h2 className="text-3xl font-black tracking-tighter italic text-slate-900 mb-2">📈 EVOLUCIÓN GLOBAL</h2>
+                <p className="text-slate-500 font-bold text-sm">Comparativa de progreso de todos los participantes</p>
               </div>
-              <select 
-                value={selectedGraphUser} 
-                onChange={(e) => setSelectedGraphUser(e.target.value)}
-                className="p-4 rounded-2xl bg-slate-50 border-2 border-slate-200 font-black text-slate-900 outline-none focus:border-blue-500 cursor-pointer min-w-[250px] shadow-sm"
-              >
-                {participants.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              {/* Leyenda de colores de participantes */}
+              <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-100">
+                {participants.map(p => (
+                  <div key={p.id} className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200">
+                    <span className="w-3 h-3 rounded-full shadow-sm" style={{background: p.color}}></span>
+                    <span className="text-xs font-black text-slate-700">{p.name}</span>
+                  </div>
+                ))}
+                {participants.length === 0 && <span className="text-slate-400 italic text-sm font-bold">Añade participantes para ver la leyenda.</span>}
+              </div>
             </div>
 
-            {selectedGraphUser ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <LineChart data={graphData} dataKey="weight" color="#3b82f6" label="Evolución de Peso (Kg)" />
-                <LineChart data={graphData} dataKey="bfp" color="#10b981" label="Evolución % Grasa Corporal" />
-              </div>
-            ) : (
-              <div className="text-center p-10 text-slate-400 font-bold">Añade participantes para ver gráficas.</div>
-            )}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <MultiLineChart participants={participants} dataKey="weight" label="Evolución de PESO (Kg)" />
+              <MultiLineChart participants={participants} dataKey="bfp" label="Evolución % GRASA CORPORAL" isBfp={true} />
+              <MultiLineChart participants={participants} dataKey="arm" label="Evolución de BRAZO (cm)" />
+              <MultiLineChart participants={participants} dataKey="chest" label="Evolución de PECHO (cm)" />
+            </div>
           </div>
         )}
 
-        {/* TAB 3: RANKING */}
+        {/* TAB 3: RANKING MEJORADO */}
         {activeTab === 'ranking' && (
           <div className="bg-white rounded-[3rem] p-6 md:p-10 border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row justify-between md:items-end mb-10 gap-4">
               <h2 className="text-4xl font-black tracking-tighter italic flex items-center gap-4 text-slate-900">
                 🏆 CLASIFICACIÓN
               </h2>
-              <div className="flex gap-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Peso</span>
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Grasa</span>
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span> Racha</span>
-              </div>
             </div>
             
             <div className="overflow-x-auto font-black">
@@ -402,7 +424,7 @@ export default function App() {
                   <tr>
                     <th className="p-6">Pos</th>
                     <th className="p-6">Jugador</th>
-                    <th className="p-6 min-w-[200px]">Progreso Gráfico</th>
+                    <th className="p-6 min-w-[280px]">Progreso Gráfico</th>
                     <th className="p-6 text-center">Mejor Racha</th>
                     <th className="p-6 text-right font-black">Puntuación Total</th>
                   </tr>
@@ -426,16 +448,20 @@ export default function App() {
                         </td>
                         
                         <td className="p-6">
-                          <div className="flex flex-col gap-3">
+                          <div className="flex flex-col gap-4 py-2">
+                            {/* BARRA PESO */}
                             <div className="flex items-center gap-3">
-                              <span className="text-xs font-bold text-slate-400 w-10 text-right">- {r.wLoss.toFixed(1)}</span>
-                              <div className="flex-1 h-3.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                              <span className="text-[10px] font-black text-blue-600 w-12 text-right uppercase tracking-widest bg-blue-50 px-1 py-0.5 rounded">Peso</span>
+                              <span className="text-xs font-black text-slate-500 w-12 text-left">- {r.wLoss.toFixed(1)}</span>
+                              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
                                 <div className="h-full bg-blue-500 rounded-full transition-all duration-1000" style={{width: `${pesoVisual}%`}}></div>
                               </div>
                             </div>
+                            {/* BARRA GRASA */}
                             <div className="flex items-center gap-3">
-                              <span className="text-xs font-bold text-slate-400 w-10 text-right">- {r.fLoss.toFixed(1)}</span>
-                              <div className="flex-1 h-3.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                              <span className="text-[10px] font-black text-emerald-600 w-12 text-right uppercase tracking-widest bg-emerald-50 px-1 py-0.5 rounded">Grasa</span>
+                              <span className="text-xs font-black text-slate-500 w-12 text-left">- {r.fLoss.toFixed(1)}</span>
+                              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
                                 <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{width: `${grasaVisual}%`}}></div>
                               </div>
                             </div>
