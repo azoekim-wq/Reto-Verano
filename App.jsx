@@ -50,7 +50,7 @@ export default function App() {
   useEffect(() => {
     signInAnonymously(auth).catch((err) => {
       console.error("Auth fail:", err);
-      setConnError("Error: Dominio no autorizado. Sigue el Paso 1 de la Guía.");
+      setConnError("Error de Conexión: Si acabas de añadir el dominio en Firebase, espera 5 minutos. Asegúrate de entrar por: [https://reto-verano.vercel.app](https://reto-verano.vercel.app)");
     });
     return onAuthStateChanged(auth, setUser);
   }, []);
@@ -65,7 +65,7 @@ export default function App() {
       setConnError(null);
     }, (err) => {
       console.error("Snapshot error:", err);
-      setConnError("Error de permisos: Revisa las Reglas de Firestore.");
+      setConnError("Error de permisos en la base de datos.");
       setLoading(false);
     });
     return () => unsubscribe();
@@ -105,10 +105,12 @@ export default function App() {
   };
 
   const rankingData = useMemo(() => {
-    const ranked = participants.filter(p => p.weeklyData?.length >= 2).map(p => {
+    const valid = participants.filter(p => p.weeklyData?.length >= 2);
+    const ranked = valid.map(p => {
       const sorted = [...p.weeklyData].sort((a,b)=>a.week-b.week);
       const first = sorted.find(w => w.weight && calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip));
       const last = [...sorted].reverse().find(w => w.weight && calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip));
+      
       if (!first || !last || first.week === last.week) return { ...p, score: 0, isUnranked: true };
 
       const bfp1 = calculateBFP(p.gender, p.height, first.neck, first.waist, first.hip);
@@ -141,13 +143,13 @@ export default function App() {
 
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center font-black text-slate-400 p-10 text-center">
-      <div className="animate-pulse text-2xl tracking-tighter italic uppercase mb-4">Sincronizando con la Nube...</div>
-      {connError && <div className="text-red-500 text-sm max-w-xs">{connError}</div>}
+      <div className="animate-pulse text-2xl tracking-tighter italic uppercase mb-4 text-slate-800">Sincronizando con la Nube...</div>
+      {connError && <div className="text-red-500 text-sm max-w-xs bg-red-50 p-4 rounded-xl border border-red-100">{connError}</div>}
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-4 pb-24 font-sans">
+    <div className="min-h-screen bg-[#f8fafc] p-4 pb-24 font-sans text-slate-900">
       <div className="max-w-[1500px] mx-auto space-y-6">
         <header className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
           <h1 className="text-3xl font-black tracking-tighter italic flex items-center gap-2">
@@ -175,7 +177,7 @@ export default function App() {
                       <th className="p-6 w-64 sticky left-0 bg-slate-50 z-20 text-left font-black">Participante</th>
                       {Array.from({length:16}).map((_,i)=>(
                         <th key={i} className={`p-4 border-l border-slate-100 min-w-[300px] ${(i+1)%4===0?'bg-blue-50/50':''}`}>
-                          <div className="text-slate-800 text-xs mb-3 font-black">SEMANA {i+1} {(i+1)%4===0?'🔵':''}</div>
+                          <div className="text-slate-800 text-xs mb-3 font-black uppercase">Semana {i+1} {(i+1)%4===0?'🔵':''}</div>
                           <div className="flex gap-1 opacity-60 font-bold tracking-tight">
                             <span className="flex-1">Kg</span><span className="flex-1">Cuello</span><span className="flex-1">Cint</span><span className="flex-1">Cad</span><span className="flex-1 text-blue-600 font-black">Grasa %</span>
                           </div>
@@ -189,7 +191,7 @@ export default function App() {
                         <td className="p-6 sticky left-0 bg-white group-hover:bg-slate-50 z-10">
                           <div className="flex items-center justify-between">
                             <div onClick={()=> { setInputName(p.name); setInputGender(p.gender); setInputAge(p.age); setInputHeight(p.height); setModalState({isOpen:true, type:'edit', data:{docId:p.docId, ...p}}); }} className="cursor-pointer">
-                              <div className="font-black text-xl flex items-center gap-2 tracking-tighter hover:text-blue-600 transition-colors"><div className="w-3 h-3 rounded-full" style={{background:p.color}}></div>{p.name}</div>
+                              <div className="font-black text-xl flex items-center gap-2 tracking-tighter hover:text-blue-600 transition-colors"><div className="w-3 h-3 rounded-full shadow-sm" style={{background:p.color}}></div>{p.name}</div>
                               <div className="text-[10px] font-bold opacity-30 uppercase ml-5 mt-1">{p.gender==='M'?'Hombre':'Mujer'} · {p.height}cm</div>
                             </div>
                             <button onClick={()=>setModalState({isOpen:true, type:'delete', data:{docId:p.docId, playerName:p.name}})} className="opacity-0 group-hover:opacity-100 text-red-200 hover:text-red-500 transition-opacity">🗑️</button>
@@ -248,7 +250,7 @@ export default function App() {
                   {rankingData.ranked.map((r,i) => (
                     <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50 transition-all group">
                       <td className="p-6 text-5xl font-black italic text-slate-100 group-hover:text-slate-200 transition-colors">{i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
-                      <td className="p-6"><div className="flex items-center gap-4 font-black text-2xl tracking-tighter"><span className="w-4 h-4 rounded-full shadow-sm" style={{background:r.color}}></span>{r.name}</div></td>
+                      <td className="p-6"><div className="flex items-center gap-4 font-black text-2xl tracking-tighter"><span className="w-4 h-4 rounded-full shadow-md" style={{background:r.color}}></span>{r.name}</div></td>
                       <td className="p-6 text-center text-green-500 font-black text-xl tracking-tight">-{r.wLoss.toFixed(1)}kg</td>
                       <td className="p-6 text-center text-green-500 font-black text-xl tracking-tight">-{r.fLoss.toFixed(1)}%</td>
                       <td className="p-6 text-center font-bold text-slate-300 group-hover:text-blue-500 transition-colors tracking-tight">{r.maxS} semanas</td>
@@ -264,7 +266,7 @@ export default function App() {
 
       {modalState.isOpen && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xl z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3.5rem] p-12 w-full max-w-md shadow-2xl border border-white/20 animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-[3.5rem] p-12 w-full max-w-md shadow-2xl border border-white/20 animate-in zoom-in-95 duration-200 text-slate-900">
             <h3 className="text-3xl font-black mb-8 tracking-tighter uppercase italic">{modalState.type==='add'?'👤 NUEVO':'✏️ PERFIL'}</h3>
             {modalState.type !== 'delete' ? (
               <div className="space-y-6 mb-10">
