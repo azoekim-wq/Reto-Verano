@@ -50,7 +50,7 @@ export default function App() {
   useEffect(() => {
     signInAnonymously(auth).catch((err) => {
       console.error("Auth fail:", err);
-      setConnError("Error de autenticación: Verifica que el acceso Anónimo esté activado en Firebase.");
+      setConnError("Error: Dominio no autorizado. Sigue el Paso 1 de la Guía.");
     });
     return onAuthStateChanged(auth, setUser);
   }, []);
@@ -65,7 +65,7 @@ export default function App() {
       setConnError(null);
     }, (err) => {
       console.error("Snapshot error:", err);
-      setConnError("Error de permisos: Revisa las Reglas de Firestore en tu consola de Firebase.");
+      setConnError("Error de permisos: Revisa las Reglas de Firestore.");
       setLoading(false);
     });
     return () => unsubscribe();
@@ -277,7 +277,7 @@ export default function App() {
               </div>
             ) : <p className="mb-10 text-slate-500 font-bold text-xl text-center leading-tight tracking-tight">¿Eliminar a <b>{modalState.data.playerName}</b>?</p>}
             <div className="flex gap-4">
-              <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest text-[10px]">CANCELAR</button>
+              <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-300 hover:bg-slate-50 transition-colors uppercase tracking-widest text-[10px]">CANCELAR</button>
               <button onClick={confirmAction} className={`flex-1 p-5 rounded-2xl font-black text-white shadow-xl uppercase tracking-widest text-[10px] ${modalState.type==='delete'?'bg-red-500 shadow-red-100':'bg-blue-600 shadow-blue-100'}`}>CONFIRMAR</button>
             </div>
           </div>
