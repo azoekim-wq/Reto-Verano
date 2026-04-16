@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// CONFIGURACIÓN DE TU FIREBASE
+// CONFIGURACIÓN DE TU FIREBASE (VINCULADO A TU PROYECTO)
 const firebaseConfig = {
   apiKey: "AIzaSyD-BUO7VCx64Eq8-VyXt4ZEIP1AY_tr-JA",
   authDomain: "reto-verano-46f08.firebaseapp.com",
@@ -50,7 +50,7 @@ export default function App() {
   useEffect(() => {
     signInAnonymously(auth).catch((err) => {
       console.error("Auth fail:", err);
-      setConnError("Error de Conexión: Si acabas de añadir el dominio en Firebase, espera 5 minutos. Asegúrate de entrar por: [https://reto-verano.vercel.app](https://reto-verano.vercel.app)");
+      setConnError("Error de Conexión. Entra por: [https://reto-verano.vercel.app](https://reto-verano.vercel.app)");
     });
     return onAuthStateChanged(auth, setUser);
   }, []);
@@ -65,7 +65,7 @@ export default function App() {
       setConnError(null);
     }, (err) => {
       console.error("Snapshot error:", err);
-      setConnError("Error de permisos en la base de datos.");
+      setConnError("Error de base de datos. Revisa las Reglas en Firebase.");
       setLoading(false);
     });
     return () => unsubscribe();
@@ -119,15 +119,16 @@ export default function App() {
       const fLoss = Math.max(0, bfp1 - bfp2);
       
       let maxS = 0, currS = 0, pW = first.weight, pF = bfp1;
-      sorted.slice(sorted.indexOf(first)+1).forEach(w => {
+      const firstIndex = sorted.indexOf(first);
+      sorted.slice(firstIndex + 1).forEach(w => {
         const b = calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip);
-        let imp = false;
-        if (w.weight && pW && w.weight < pW) imp = true;
-        if (b && pF && b < pF) imp = true;
+        let improved = false;
+        if (w.weight && pW && w.weight < pW) improved = true;
+        if (b && pF && b < pF) improved = true;
 
-        if (imp) { 
+        if (improved) { 
           currS++; 
-          maxS = Math.max(maxS, currS); 
+          if (currS > maxS) maxS = currS; 
         } else if (w.weight || b) {
           currS = 0;
         }
@@ -135,8 +136,8 @@ export default function App() {
         if (b) pF = b;
       });
 
-      const scoreCalc = (wLoss * 2) + (fLoss * 3) + (maxS * 2);
-      return { ...p, wLoss, fLoss, maxS, score: scoreCalc.toFixed(1) };
+      const scoreValue = (wLoss * 2) + (fLoss * 3) + (maxS * 2);
+      return { ...p, wLoss, fLoss, maxS, score: scoreValue.toFixed(1) };
     }).filter(p => !p.isUnranked).sort((a,b) => b.score - a.score);
     return { ranked, unranked: participants.filter(p => !ranked.find(r => r.id === p.id)) };
   }, [participants]);
@@ -150,7 +151,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 pb-24 font-sans text-slate-900">
-      <div className="max-w-[1500px] mx-auto space-y-6">
+      <div className="max-w-[1500px] mx-auto space-y-6 text-slate-900">
         <header className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
           <h1 className="text-3xl font-black tracking-tighter italic flex items-center gap-2">
             <span className="text-orange-500 animate-pulse">🔥</span> RETO VERANO
@@ -178,7 +179,7 @@ export default function App() {
                       {Array.from({length:16}).map((_,i)=>(
                         <th key={i} className={`p-4 border-l border-slate-100 min-w-[300px] ${(i+1)%4===0?'bg-blue-50/50':''}`}>
                           <div className="text-slate-800 text-xs mb-3 font-black uppercase">Semana {i+1} {(i+1)%4===0?'🔵':''}</div>
-                          <div className="flex gap-1 opacity-60 font-bold tracking-tight">
+                          <div className="flex gap-1 opacity-60 font-bold tracking-tight text-slate-400">
                             <span className="flex-1">Kg</span><span className="flex-1">Cuello</span><span className="flex-1">Cint</span><span className="flex-1">Cad</span><span className="flex-1 text-blue-600 font-black">Grasa %</span>
                           </div>
                         </th>
@@ -203,7 +204,7 @@ export default function App() {
                           const bfp = calculateBFP(p.gender, p.height, wData.neck, wData.waist, wData.hip);
                           return (
                             <td key={i} className={`p-4 border-l border-slate-100 align-middle ${hito?'bg-blue-50/15':''}`}>
-                              <div className="flex flex-col gap-4 min-h-[120px] justify-center">
+                              <div className="flex flex-col gap-4 min-h-[120px] justify-center text-slate-900">
                                 <div className="grid grid-cols-5 gap-2">
                                   {['weight','neck','waist','hip'].map(f => (
                                     <input key={f} type="number" step="0.1" disabled={f==='hip'&&p.gender==='M'}
@@ -269,7 +270,7 @@ export default function App() {
           <div className="bg-white rounded-[3.5rem] p-12 w-full max-w-md shadow-2xl border border-white/20 animate-in zoom-in-95 duration-200 text-slate-900">
             <h3 className="text-3xl font-black mb-8 tracking-tighter uppercase italic">{modalState.type==='add'?'👤 NUEVO':'✏️ PERFIL'}</h3>
             {modalState.type !== 'delete' ? (
-              <div className="space-y-6 mb-10">
+              <div className="space-y-6 mb-10 text-slate-900">
                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Nombre</label><input type="text" placeholder="Ej: David" value={inputName} onChange={e=>setInputName(e.target.value)} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none focus:ring-4 ring-blue-500/10 focus:bg-white transition-all shadow-sm" /></div>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Género</label><select value={inputGender} onChange={e=>setInputGender(e.target.value)} className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none cursor-pointer"><option value="M">Hombre</option><option value="F">Mujer</option></select></div>
