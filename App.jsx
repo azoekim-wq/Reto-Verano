@@ -21,7 +21,6 @@ const db = getFirestore(app);
 const TOTAL_WEEKS = 16;
 const COLORS = ["#4f6ef7", "#f56565", "#ed8936", "#48bb78", "#9f7aea", "#38b2ac", "#ed64a6", "#667eea", "#fc8181", "#4fd1c5"];
 
-// Cálculo del % de Grasa (Fórmula Marina de EE.UU. - Navy Seal)
 const calculateBFP = (gender, height, neck, waist, hip) => {
   if (!height || !neck || !waist) return null;
   if (gender === 'M') {
@@ -107,11 +106,11 @@ export default function App() {
       let maxS = 0, currS = 0, pW = first.weight, pF = bfp1;
       sorted.slice(sorted.indexOf(first)+1).forEach(w => {
         const b = calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip);
-        let improved = false;
-        if (w.weight && pW && w.weight < pW) improved = true;
-        if (b && pF && b < pF) improved = true;
+        let imp = false;
+        if (w.weight && pW && w.weight < pW) imp = true;
+        if (b && pF && b < pF) imp = true;
 
-        if (improved) { currS++; maxS = Math.max(maxS, currS); }
+        if (imp) { currS++; maxS = Math.max(maxS, currS); }
         else if (w.weight || b) currS = 0;
         if (w.weight) pW = w.weight; if (b) pF = b;
       });
@@ -121,7 +120,7 @@ export default function App() {
     return { ranked, unranked: participants.filter(p => !ranked.find(r => r.id === p.id)) };
   }, [participants]);
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-slate-300 animate-pulse text-2xl tracking-tighter italic uppercase">Conectando...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-slate-300 animate-pulse text-2xl tracking-tighter italic uppercase">Sincronizando Reto...</div>;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 pb-24 font-sans">
@@ -154,7 +153,7 @@ export default function App() {
                         <th key={i} className={`p-4 border-l border-slate-100 min-w-[300px] ${(i+1)%4===0?'bg-blue-50/50':''}`}>
                           <div className="text-slate-800 text-xs mb-3">SEMANA {i+1} {(i+1)%4===0?'🔵':''}</div>
                           <div className="flex gap-1 opacity-60 font-bold tracking-tight">
-                            <span className="flex-1">Kg</span><span className="flex-1">Cuello</span><span className="flex-1">Cint</span><span className="flex-1">Cad</span><span className="flex-1 text-blue-600 font-black">Grasa %</span>
+                            <span className="flex-1">Kg</span><span className="flex-1">Cuel</span><span className="flex-1">Cint</span><span className="flex-1">Cad</span><span className="flex-1 text-blue-600 font-black">Grasa %</span>
                           </div>
                         </th>
                       ))}
@@ -255,7 +254,7 @@ export default function App() {
             ) : <p className="mb-10 text-slate-500 font-bold text-xl text-center leading-tight tracking-tight">¿Eliminar a <b>{modalState.data.playerName}</b>?</p>}
             <div className="flex gap-4">
               <button onClick={()=>setModalState({isOpen:false})} className="flex-1 p-5 rounded-2xl font-black text-slate-300 hover:bg-slate-50 transition-colors uppercase tracking-widest text-[10px]">CANCELAR</button>
-              <button onClick={confirmAction} className={`flex-1 p-5 rounded-2xl font-black text-white shadow-xl uppercase tracking-widest text-[10px] ${modalState.type==='delete'?'bg-red-500':'bg-blue-600 shadow-blue-100'}`}>CONFIRMAR</button>
+              <button onClick={confirmAction} className={`flex-1 p-5 rounded-2xl font-black text-white shadow-xl uppercase tracking-widest text-[10px] ${modalState.type==='delete'?'bg-red-500 shadow-red-100':'bg-blue-600 shadow-blue-100'}`}>CONFIRMAR</button>
             </div>
           </div>
         </div>
