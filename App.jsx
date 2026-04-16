@@ -40,10 +40,10 @@ const calculateBFP = (gender, height, neck, waist, hip) => {
   }
 };
 
-// Componente de Gráfica Multi-Jugador
+// Componente de Gráfica Multi-Jugador BLINDADO
 const MultiLineChart = ({ participants, dataKey, label, isBfp = false }) => {
-  // 1. Extraer puntos válidos
   let allValues = [];
+  
   const lines = participants.map(p => {
     const pPoints = [];
     (p.weeklyData || []).forEach(w => {
@@ -51,9 +51,11 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false }) => {
       if (isBfp) val = calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip);
       else val = w[dataKey];
       
-      if (val != null) {
-        pPoints.push({ week: w.week, value: val });
-        allValues.push(val);
+      // BLINDAJE: Solo aceptamos números reales. Ignoramos textos vacíos ("") que rompan el renderizado
+      const numericVal = parseFloat(val);
+      if (!isNaN(numericVal)) {
+        pPoints.push({ week: Number(w.week), value: numericVal });
+        allValues.push(numericVal);
       }
     });
     return { id: p.id, color: p.color, points: pPoints.sort((a,b)=>a.week-b.week) };
@@ -77,7 +79,6 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false }) => {
   const paddingX = 40;
   const paddingY = 40;
 
-  // Encontrar todas las semanas únicas para las líneas de la cuadrícula
   const allWeeks = Array.from(new Set(lines.flatMap(l => l.points.map(p => p.week)))).sort((a,b)=>a-b);
   const minWeek = Math.min(...allWeeks, 1);
   const maxWeek = Math.max(...allWeeks, 16);
@@ -89,12 +90,10 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false }) => {
       <div className="min-w-[600px]">
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
           
-          {/* Líneas horizontales de guía (Grid Y) */}
           <line x1={paddingX} y1={paddingY} x2={width - paddingX} y2={paddingY} stroke="#f1f5f9" strokeWidth="1" />
           <line x1={paddingX} y1={height/2} x2={width - paddingX} y2={height/2} stroke="#f1f5f9" strokeWidth="1" />
           <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} stroke="#e2e8f0" strokeWidth="2" />
           
-          {/* Líneas verticales y Etiquetas de Semana (Grid X) */}
           {allWeeks.map(w => {
             const x = paddingX + ((w - minWeek) / weekRange) * (width - paddingX * 2);
             return (
@@ -105,7 +104,6 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false }) => {
             );
           })}
 
-          {/* Dibujar Líneas y Puntos por Participante */}
           {lines.map(line => {
             const polylinePoints = line.points.map(pt => {
               const x = paddingX + ((pt.week - minWeek) / weekRange) * (width - paddingX * 2);
@@ -147,7 +145,6 @@ export default function App() {
   const [modalState, setModalState] = useState({ isOpen: false, type: '', data: null });
   const [form, setForm] = useState({ name: '', gender: 'M', age: '', height: '' });
 
-  // 🌟 TRUCO MAGICO: Inyectar Tailwind CSS
   useEffect(() => {
     if (!document.getElementById('tailwind-cdn')) {
       const script = document.createElement('script');
@@ -157,7 +154,6 @@ export default function App() {
     }
   }, []);
 
-  // Autenticación
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       if (u) {
@@ -169,7 +165,6 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Base de datos
   useEffect(() => {
     if (!user) return;
     const q = collection(db, 'retos', appId, 'participantes');
@@ -230,18 +225,23 @@ export default function App() {
       
       const b1 = calculateBFP(p.gender, p.height, fItem.neck, fItem.waist, fItem.hip) || 0;
       const b2 = calculateBFP(p.gender, p.height, lItem.neck, lItem.waist, lItem.hip) || 0;
-      const wLoss = Math.max(0, (fItem.weight || 0) - (lItem.weight || 0));
+      const wLoss = Math.max(0, (parseFloat(fItem.weight) || 0) - (parseFloat(lItem.weight) || 0));
       const fLoss = Math.max(0, b1 - b2);
       
-      let rMax = 0, rCurr = 0, prevW = fItem.weight, prevB = b1;
+      let rMax = 0, rCurr = 0, prevW = parseFloat(fItem.weight), prevB = b1;
       sortedData.slice(sortedData.indexOf(fItem) + 1).forEach(w => {
         const b = calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip);
+        const currentW = parseFloat(w.weight);
         let win = false;
-        if (w.weight && prevW && w.weight < prevW) win = true;
+        
+        if (!isNaN(currentW) && prevW && currentW < prevW) win = true;
         if (b && prevB && b < prevB) win = true;
+        
         if (win) { rCurr++; if (rCurr > rMax) rMax = rCurr; }
-        else if (w.weight || b) rCurr = 0;
-        if (w.weight) prevW = w.weight; if (b) prevB = b;
+        else if (!isNaN(currentW) || b) rCurr = 0;
+        
+        if (!isNaN(currentW)) prevW = currentW; 
+        if (b) prevB = b;
       });
       
       const scoreTotal = (wLoss * 2) + (fLoss * 3) + (rMax * 2);
@@ -253,7 +253,7 @@ export default function App() {
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center font-black text-slate-800 bg-[#f8fafc] p-10 text-center uppercase italic tracking-tighter">
       <div className="text-6xl mb-6 animate-bounce text-emerald-500">🔥</div>
-      <div className="animate-pulse text-2xl mb-4">Cargando v3.2...</div>
+      <div className="animate-pulse text-2xl mb-4">Cargando v3.3...</div>
       {errorInfo && <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 text-sm font-bold max-w-sm shadow-sm">{errorInfo}</div>}
     </div>
   );
@@ -270,7 +270,7 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-3xl md:text-4xl font-black tracking-tighter italic text-slate-900">
-                RETO VERANO <span className="text-[12px] bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full not-italic tracking-normal font-bold uppercase align-middle ml-2">PRO v3.2</span>
+                RETO VERANO <span className="text-[12px] bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full not-italic tracking-normal font-bold uppercase align-middle ml-2">PRO v3.3</span>
               </h1>
               <p className="text-slate-400 font-bold text-sm tracking-tight mt-1">16 Semanas de Transformación</p>
             </div>
@@ -301,7 +301,6 @@ export default function App() {
                       {Array.from({length:16}).map((_,i)=>(
                         <th key={i} className={`p-4 border-l border-slate-200 min-w-[350px] ${(i+1)%4===0?'bg-emerald-50/50':''}`}>
                           <div className="text-slate-800 text-sm mb-3 font-black uppercase italic tracking-tight">Semana {i+1} {(i+1)%4===0?'🏆':''}</div>
-                          {/* CONTRASTE MEJORADO EN ENCABEZADOS */}
                           <div className="flex gap-2 font-black text-[10px] tracking-tight text-slate-700">
                             <span className="flex-1 text-center bg-slate-200/70 py-1.5 rounded-md">Kg</span>
                             <span className="flex-1 text-center bg-slate-200/70 py-1.5 rounded-md">Cuello</span>
@@ -335,7 +334,6 @@ export default function App() {
                           return (
                             <td key={i} className={`p-4 border-l border-slate-200 align-middle ${hito?'bg-emerald-50/30':''}`}>
                               <div className="flex flex-col gap-4 min-h-[100px] justify-center">
-                                {/* CONTRASTE MEJORADO EN INPUTS */}
                                 <div className="flex gap-2">
                                   {['weight','neck','waist','hip'].map(f => {
                                     const isDisabled = f === 'hip' && p.gender === 'M';
@@ -351,7 +349,6 @@ export default function App() {
                                   </div>
                                 </div>
                                 
-                                {/* SOLUCIÓN PARA BRAZO Y PECHO */}
                                 {hito && (
                                   <div className="grid grid-cols-2 gap-3 pt-4 border-t-2 border-dashed border-emerald-200/60">
                                     {['arm', 'chest'].map(f => (
@@ -380,7 +377,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 2: GRÁFICAS (TODOS LOS JUGADORES A LA VEZ) */}
+        {/* TAB 2: GRÁFICAS */}
         {activeTab === 'graphs' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-slate-200 shadow-sm flex flex-col gap-6">
@@ -388,7 +385,6 @@ export default function App() {
                 <h2 className="text-3xl font-black tracking-tighter italic text-slate-900 mb-2">📈 EVOLUCIÓN GLOBAL</h2>
                 <p className="text-slate-500 font-bold text-sm">Comparativa de progreso de todos los participantes</p>
               </div>
-              {/* Leyenda de colores de participantes */}
               <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-100">
                 {participants.map(p => (
                   <div key={p.id} className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200">
