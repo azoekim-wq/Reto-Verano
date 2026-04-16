@@ -6,7 +6,7 @@ import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc
 // 1. CONFIGURACIÓN FIREBASE 
 // ⚠️ ATENCIÓN: Sustituye el texto de abajo por tu API Key real.
 const firebaseConfig = {
-  apiKey: "PEGA_TU_API_KEY_AQUI", 
+  apiKey: "AIzaSyD-BUO7VCx64Eq8-VyXt4ZEIP1AY_tR-JA", 
   authDomain: "reto-verano-46f08.firebaseapp.com",
   projectId: "reto-verano-46f08",
   storageBucket: "reto-verano-46f08.firebasestorage.app",
