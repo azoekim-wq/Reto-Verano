@@ -40,8 +40,8 @@ const calculateBFP = (gender, height, neck, waist, hip) => {
   }
 };
 
-// Componente de Gráfica Multi-Jugador BLINDADO
-const MultiLineChart = ({ participants, dataKey, label, isBfp = false }) => {
+// Componente de Gráfica Multi-Jugador BLINDADO E INTERACTIVO
+const MultiLineChart = ({ participants, dataKey, label, isBfp = false, highlightedUser }) => {
   let allValues = [];
   
   const lines = participants.map(p => {
@@ -51,7 +51,7 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false }) => {
       if (isBfp) val = calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip);
       else val = w[dataKey];
       
-      // BLINDAJE: Solo aceptamos números reales. Ignoramos textos vacíos ("") que rompan el renderizado
+      // BLINDAJE: Solo aceptamos números reales.
       const numericVal = parseFloat(val);
       if (!isNaN(numericVal)) {
         pPoints.push({ week: Number(w.week), value: numericVal });
@@ -84,11 +84,18 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false }) => {
   const maxWeek = Math.max(...allWeeks, 16);
   const weekRange = Math.max(maxWeek - minWeek, 1);
 
+  // Ordenamos las líneas para que el usuario resaltado se dibuje el último (y quede por encima del resto)
+  const sortedLines = [...lines].sort((a, b) => {
+    if (a.id === highlightedUser) return 1;
+    if (b.id === highlightedUser) return -1;
+    return 0;
+  });
+
   return (
-    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm w-full overflow-x-auto">
+    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm w-full overflow-x-auto transition-all">
       <h3 className="text-xl font-black text-slate-800 mb-6">{label}</h3>
       <div className="min-w-[600px]">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible transition-all duration-300">
           
           <line x1={paddingX} y1={paddingY} x2={width - paddingX} y2={paddingY} stroke="#f1f5f9" strokeWidth="1" />
           <line x1={paddingX} y1={height/2} x2={width - paddingX} y2={height/2} stroke="#f1f5f9" strokeWidth="1" />
@@ -104,7 +111,14 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false }) => {
             );
           })}
 
-          {lines.map(line => {
+          {sortedLines.map(line => {
+            // Lógica para resaltar o atenuar
+            const isHighlighted = highlightedUser === line.id;
+            const isDimmed = highlightedUser !== null && !isHighlighted;
+            const lineOpacity = isDimmed ? "0.15" : (isHighlighted ? "1" : "0.8");
+            const strokeWidth = isHighlighted ? "4" : "3";
+            const circleR = isHighlighted ? "6" : "5";
+
             const polylinePoints = line.points.map(pt => {
               const x = paddingX + ((pt.week - minWeek) / weekRange) * (width - paddingX * 2);
               const y = height - paddingY - ((pt.value - paddedMin) / paddedRange) * (height - paddingY * 2);
@@ -112,17 +126,22 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false }) => {
             });
 
             return (
-              <g key={`line-${line.id}`}>
+              <g key={`line-${line.id}`} className="transition-opacity duration-300">
                 {line.points.length > 1 && (
-                  <polyline fill="none" stroke={line.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={polylinePoints.join(' ')} opacity="0.8" className="drop-shadow-sm" />
+                  <polyline fill="none" stroke={line.color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" points={polylinePoints.join(' ')} opacity={lineOpacity} className={isHighlighted ? "drop-shadow-md" : "drop-shadow-sm"} />
                 )}
                 {line.points.map(pt => {
                   const x = paddingX + ((pt.week - minWeek) / weekRange) * (width - paddingX * 2);
                   const y = height - paddingY - ((pt.value - paddedMin) / paddedRange) * (height - paddingY * 2);
                   return (
                     <g key={`pt-${line.id}-${pt.week}`}>
-                      <circle cx={x} cy={y} r="5" fill={line.color} stroke="#ffffff" strokeWidth="2" className="drop-shadow-sm" />
-                      <text x={x} y={y - 12} textAnchor="middle" fontSize="11" fill={line.color} fontWeight="900" className="drop-shadow-md">{pt.value.toFixed(1)}</text>
+                      <circle cx={x} cy={y} r={circleR} fill={line.color} stroke="#ffffff" strokeWidth="2" opacity={lineOpacity} className={isHighlighted ? "drop-shadow-md" : "drop-shadow-sm"} />
+                      {/* Ocultamos los textos si la línea está atenuada para limpiar la vista */}
+                      {!isDimmed && (
+                        <text x={x} y={y - 12} textAnchor="middle" fontSize={isHighlighted ? "13" : "11"} fill={line.color} fontWeight="900" className="drop-shadow-md transition-all">
+                          {pt.value.toFixed(1)}
+                        </text>
+                      )}
                     </g>
                   );
                 })}
@@ -144,6 +163,9 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState('');
   const [modalState, setModalState] = useState({ isOpen: false, type: '', data: null });
   const [form, setForm] = useState({ name: '', gender: 'M', age: '', height: '' });
+  
+  // Estado para saber qué usuario hemos resaltado en las gráficas
+  const [highlightedUser, setHighlightedUser] = useState(null);
 
   useEffect(() => {
     if (!document.getElementById('tailwind-cdn')) {
@@ -383,24 +405,39 @@ export default function App() {
             <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-slate-200 shadow-sm flex flex-col gap-6">
               <div>
                 <h2 className="text-3xl font-black tracking-tighter italic text-slate-900 mb-2">📈 EVOLUCIÓN GLOBAL</h2>
-                <p className="text-slate-500 font-bold text-sm">Comparativa de progreso de todos los participantes</p>
+                <p className="text-slate-500 font-bold text-sm">Haz clic en un participante para resaltar su evolución.</p>
               </div>
               <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-100">
-                {participants.map(p => (
-                  <div key={p.id} className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200">
-                    <span className="w-3 h-3 rounded-full shadow-sm" style={{background: p.color}}></span>
-                    <span className="text-xs font-black text-slate-700">{p.name}</span>
-                  </div>
-                ))}
+                {participants.map(p => {
+                  const isSelected = highlightedUser === p.id;
+                  const isDimmed = highlightedUser !== null && !isSelected;
+                  
+                  return (
+                    <button 
+                      key={p.id} 
+                      onClick={() => setHighlightedUser(isSelected ? null : p.id)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
+                        isSelected 
+                          ? 'bg-white shadow-md border-slate-300 scale-105 ring-2 ring-slate-100' 
+                          : isDimmed 
+                            ? 'bg-slate-50 border-slate-100 opacity-40 grayscale hover:opacity-100 hover:grayscale-0'
+                            : 'bg-slate-50 border-slate-200 hover:bg-white hover:shadow-sm'
+                      }`}
+                    >
+                      <span className="w-3 h-3 rounded-full shadow-sm" style={{background: p.color}}></span>
+                      <span className={`text-xs font-black ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>{p.name}</span>
+                    </button>
+                  );
+                })}
                 {participants.length === 0 && <span className="text-slate-400 italic text-sm font-bold">Añade participantes para ver la leyenda.</span>}
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <MultiLineChart participants={participants} dataKey="weight" label="Evolución de PESO (Kg)" />
-              <MultiLineChart participants={participants} dataKey="bfp" label="Evolución % GRASA CORPORAL" isBfp={true} />
-              <MultiLineChart participants={participants} dataKey="arm" label="Evolución de BRAZO (cm)" />
-              <MultiLineChart participants={participants} dataKey="chest" label="Evolución de PECHO (cm)" />
+              <MultiLineChart participants={participants} dataKey="weight" label="Evolución de PESO (Kg)" highlightedUser={highlightedUser} />
+              <MultiLineChart participants={participants} dataKey="bfp" label="Evolución % GRASA CORPORAL" isBfp={true} highlightedUser={highlightedUser} />
+              <MultiLineChart participants={participants} dataKey="arm" label="Evolución de BRAZO (cm)" highlightedUser={highlightedUser} />
+              <MultiLineChart participants={participants} dataKey="chest" label="Evolución de PECHO (cm)" highlightedUser={highlightedUser} />
             </div>
           </div>
         )}
