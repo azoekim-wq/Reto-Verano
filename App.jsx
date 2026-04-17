@@ -107,7 +107,7 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false, highlight
 
   const width = 800;
   const height = 280;
-  const paddingX = 50; // Margen ampliado para los números del eje Y
+  const paddingX = 50; 
   const paddingY = 40;
 
   const allWeeks = Array.from(new Set(lines.flatMap(l => l.points.map(p => p.week)))).sort((a,b)=>a-b);
@@ -351,8 +351,9 @@ export default function App() {
 
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center font-black text-slate-800 bg-[#f8fafc] p-6 text-center uppercase italic tracking-tighter">
-      <div className="text-6xl mb-6 animate-bounce drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]">💡</div>
-      <div className="animate-pulse text-xl md:text-2xl mb-4">Cargando v3.5...</div>
+      {/* IMAGEN DEL LOGO EN PANTALLA DE CARGA */}
+      <img src="/logo.jpeg" alt="Logo" className="w-24 h-24 md:w-32 md:h-32 mb-6 animate-bounce rounded-3xl shadow-lg border border-slate-200 object-contain bg-white p-2" />
+      <div className="animate-pulse text-xl md:text-2xl mb-4">Cargando v3.6...</div>
       {errorInfo && <div className="bg-red-50 text-red-600 p-4 md:p-6 rounded-3xl border border-red-100 text-sm md:text-base font-bold max-w-sm shadow-sm">{errorInfo}</div>}
     </div>
   );
@@ -361,17 +362,18 @@ export default function App() {
     <div className="min-h-screen bg-[#f8fafc] p-2 sm:p-4 md:p-6 pb-24 font-sans text-slate-900">
       <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6">
         
-        {/* HEADER ADAPTATIVO */}
+        {/* HEADER ADAPTATIVO CON LOGO */}
         <header className="bg-white p-4 md:px-10 md:py-8 rounded-3xl md:rounded-[2.5rem] shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6">
           <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto">
-            <div className="bg-yellow-50 p-3 md:p-4 rounded-xl md:rounded-2xl border border-yellow-100 shadow-[0_0_15px_rgba(250,204,21,0.2)] shrink-0">
-              <span className="text-2xl md:text-4xl inline-block animate-pulse drop-shadow-[0_0_12px_rgba(250,204,21,0.9)]">💡</span>
+            {/* CONTENEDOR DEL LOGO EN LA CABECERA */}
+            <div className="w-16 h-16 md:w-24 md:h-24 shrink-0 bg-white rounded-xl md:rounded-2xl border border-slate-100 shadow-sm flex items-center justify-center overflow-hidden p-1.5">
+              <img src="/logo.jpeg" alt="Traditional Dishes" className="w-full h-full object-contain" />
             </div>
             <div className="flex-1">
               <h1 className="text-xl sm:text-2xl md:text-4xl font-black tracking-tighter italic text-slate-900 flex items-center flex-wrap gap-2">
                 RETO VERANO 
                 <span className="text-[9px] md:text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 md:px-3 md:py-1 rounded-full not-italic tracking-normal font-bold uppercase shrink-0">
-                  PRO v3.5
+                  PRO v3.6
                 </span>
               </h1>
               <p className="text-slate-400 font-bold text-xs md:text-sm tracking-tight mt-0.5 md:mt-1">16 Semanas de Transformación</p>
@@ -642,7 +644,7 @@ export default function App() {
                 </div>
                 <div className="flex items-start gap-2 md:gap-3">
                   <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-orange-500 mt-1 shrink-0 shadow-sm"></span>
-                  <p><span className="text-slate-700 font-black">Racha:</span> 2 pts por semana seguida mejorando. Las semanas sin datos no rompen racha.</p>
+                  <p><span className="text-slate-700 font-black">Racha:</span> 2 puntos por semana seguida mejorando. Las semanas sin datos no rompen la racha.</p>
                 </div>
               </div>
             </div>
@@ -656,7 +658,7 @@ export default function App() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 w-full max-w-md shadow-2xl border border-white/20 animate-in zoom-in-95 duration-300 font-black mx-2">
             <h3 className="text-2xl md:text-3xl font-black mb-6 md:mb-8 tracking-tighter uppercase italic text-slate-900">
-              {modalState.type==='add'?'👤 NUEVO JUGADOR':'✏️ EDITAR PERFIL'}
+              {modalState.type==='add'?'👤 NUEVO JUGADOR':'✏️ EDITAR'}
             </h3>
             
             {modalState.type !== 'delete' ? (
@@ -698,7 +700,7 @@ export default function App() {
       )}
 
       {toastMsg && (
-        <div className="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 md:px-8 py-3 md:py-4 rounded-full font-black shadow-2xl z-50 animate-in slide-in-from-bottom-10 fade-in duration-300 tracking-tight border border-white/10 uppercase text-[10px] md:text-xs tracking-[0.1em] flex items-center gap-2 md:gap-3 whitespace-nowrap">
+        <div className="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 md:px-8 py-3 md:py-4 rounded-full font-black shadow-2xl z-50 tracking-tight border border-white/10 uppercase text-[10px] md:text-xs tracking-[0.1em] flex items-center gap-2 md:gap-3 whitespace-nowrap">
           <span className="text-emerald-400 text-lg md:text-xl">✓</span> {toastMsg}
         </div>
       )}
