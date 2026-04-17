@@ -29,6 +29,7 @@ const calculateBFP = (gender, height, neck, waist, hip) => {
   const n = parseFloat(neck);
   const w = parseFloat(waist);
   const hi = parseFloat(hip || 0);
+  
   if (isNaN(h) || isNaN(n) || isNaN(w)) return null;
   
   if (gender === 'M') {
@@ -137,10 +138,21 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false, highlight
           {/* Eje Y con valores */}
           {yLabels.map((lbl, i) => (
             <g key={`ylabel-${i}`}>
-              <line x1={paddingX} y1={lbl.y} x2={width - paddingX} y2={lbl.y}
-                stroke={i === 0 ? "#e2e8f0" : "#f1f5f9"} strokeWidth={i === 0 ? "2" : "1"} />
-              <text x={paddingX - 8} y={lbl.y + 4} textAnchor="end"
-                fontSize="11" fill="#94a3b8" fontWeight="700">
+              <line 
+                x1={paddingX} 
+                y1={lbl.y} 
+                x2={width - paddingX} 
+                y2={lbl.y}
+                stroke={i === 0 ? "#e2e8f0" : "#f1f5f9"} 
+                strokeWidth={i === 0 ? "2" : "1"} 
+              />
+              <text 
+                x={paddingX - 8} 
+                y={lbl.y + 4} 
+                textAnchor="end"
+                fontSize="11" 
+                fill="#94a3b8" 
+                fontWeight="700">
                 {lbl.val.toFixed(1)}
               </text>
             </g>
@@ -157,6 +169,7 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false, highlight
             );
           })}
 
+          {/* Líneas y puntos */}
           {sortedLines.map(line => {
             const isHighlighted = highlightedUser === line.id;
             const isDimmed = highlightedUser !== null && !isHighlighted;
@@ -173,7 +186,16 @@ const MultiLineChart = ({ participants, dataKey, label, isBfp = false, highlight
             return (
               <g key={`line-${line.id}`} className="transition-opacity duration-300">
                 {line.points.length > 1 && (
-                  <polyline fill="none" stroke={line.color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" points={polylinePoints.join(' ')} opacity={lineOpacity} className={isHighlighted ? "drop-shadow-md" : "drop-shadow-sm"} />
+                  <polyline 
+                    fill="none" 
+                    stroke={line.color} 
+                    strokeWidth={strokeWidth} 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    points={polylinePoints.join(' ')} 
+                    opacity={lineOpacity} 
+                    className={isHighlighted ? "drop-shadow-md" : "drop-shadow-sm"} 
+                  />
                 )}
                 {line.points.map(pt => {
                   const x = paddingX + ((pt.week - minWeek) / weekRange) * (width - paddingX * 2);
@@ -216,16 +238,7 @@ export default function App() {
     { id: 'ranking', icon: '🏆', label: 'Ranking' }
   ];
 
-  // Tailwind CDN (Por si Vercel no lo compila)
-  useEffect(() => {
-    if (!document.getElementById('tailwind-cdn')) {
-      const script = document.createElement('script');
-      script.id = 'tailwind-cdn';
-      script.src = "https://cdn.tailwindcss.com";
-      document.head.appendChild(script);
-    }
-  }, []);
-
+  // 1. Firebase Auth
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       if (u) {
@@ -237,6 +250,7 @@ export default function App() {
     return () => unsub();
   }, []);
 
+  // 2. Base de datos
   useEffect(() => {
     if (!user) return;
     const q = collection(db, 'retos', appId, 'participantes');
@@ -256,6 +270,7 @@ export default function App() {
     setTimeout(() => setToastMsg(''), 3000);
   }, []);
 
+  // 3. Modificar datos de una semana
   const handleDataChange = useCallback(async (p, weekNum, field, rawValue) => {
     const trimmed = rawValue.trim();
     const num = trimmed === '' ? '' : parseFloat(trimmed.replace(',', '.'));
@@ -263,6 +278,7 @@ export default function App() {
 
     let newData = [...(p.weeklyData || [])];
     const idx = newData.findIndex(w => w.week === weekNum);
+    
     if (idx >= 0) {
       newData[idx] = { ...newData[idx], [field]: num };
     } else {
@@ -283,8 +299,9 @@ export default function App() {
     }
   }, [showToast]);
 
+  // 4. Guardar o Eliminar Jugador
   const confirmAction = async () => {
-    // FIX VALIDACIÓN: Solo exige campos si no estamos eliminando
+    // Validación segura (solo exige datos si estamos añadiendo/editando)
     if (modalState.type !== 'delete' && (!form.name.trim() || !form.age || !form.height)) {
       showToast('Completa todos los campos');
       return;
@@ -296,38 +313,46 @@ export default function App() {
         await deleteDoc(doc(db, 'retos', appId, 'participantes', id));
       } else if (modalState.type === 'add') {
         await setDoc(doc(db, 'retos', appId, 'participantes', id), { 
-          id, color: COLORS[participants.length % COLORS.length], weeklyData: [], ...form 
+          id, 
+          color: COLORS[participants.length % COLORS.length], 
+          weeklyData: [], 
+          ...form 
         });
       } else {
         await updateDoc(doc(db, 'retos', appId, 'participantes', id), { ...form });
       }
       setModalState({ isOpen: false });
       showToast('Hecho ✨');
-    } catch (e) { showToast('Error'); }
+    } catch (e) { 
+      showToast('Error'); 
+    }
   };
 
+  // 5. Cálculo del Ranking (Con Racha Segura)
   const rankingData = useMemo(() => {
     return participants.filter(p => p.weeklyData?.length >= 2).map(p => {
       const sortedData = [...p.weeklyData].sort((a,b)=>a.week-b.week);
       const fItem = sortedData.find(w => w.weight && calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip));
       const lItem = [...sortedData].reverse().find(w => w.weight && calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip));
+      
       if (!fItem || !lItem || fItem.week === lItem.week) return { ...p, score: 0, isUnranked: true };
       
       const b1 = calculateBFP(p.gender, p.height, fItem.neck, fItem.waist, fItem.hip) || 0;
       const b2 = calculateBFP(p.gender, p.height, lItem.neck, lItem.waist, lItem.hip) || 0;
+      
       const wLoss = Math.max(0, (parseFloat(fItem.weight) || 0) - (parseFloat(lItem.weight) || 0));
       const fLoss = Math.max(0, b1 - b2);
       
       let rMax = 0, rCurr = 0, prevW = parseFloat(fItem.weight), prevB = b1;
       
-      // FIX RACHA: Las semanas "neutras" (sin datos) no rompen la racha
       sortedData.slice(sortedData.indexOf(fItem) + 1).forEach(w => {
         const b = calculateBFP(p.gender, p.height, w.neck, w.waist, w.hip);
         const currentW = parseFloat(w.weight);
         const hasWeight = !isNaN(currentW) && currentW > 0;
         const hasBfp = b !== null;
 
-        if (!hasWeight && !hasBfp) return; // Semana en blanco
+        // Semanas en blanco se ignoran (No suman ni restan a la racha)
+        if (!hasWeight && !hasBfp) return;
 
         let win = false;
         if (hasWeight && prevW && currentW < prevW) win = true;
@@ -337,7 +362,7 @@ export default function App() {
           rCurr++; 
           if (rCurr > rMax) rMax = rCurr; 
         } else {
-          rCurr = 0; // Se rompe si has reportado y no hay mejora
+          rCurr = 0; // Solo se corta la racha si reporta datos y son peores/iguales
         }
         
         if (hasWeight) prevW = currentW; 
@@ -349,15 +374,26 @@ export default function App() {
     }).filter(p => !p.isUnranked).sort((a,b) => b.score - a.score);
   }, [participants]);
 
+  // ─── PANTALLA DE CARGA ───────────────────────────────────────────────────
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center font-black text-slate-800 bg-[#f8fafc] p-6 text-center uppercase italic tracking-tighter">
-      {/* IMAGEN DEL LOGO EN PANTALLA DE CARGA */}
-      <img src="/logo.jpeg" alt="Logo" className="w-24 h-24 md:w-32 md:h-32 mb-6 animate-bounce rounded-3xl shadow-lg border border-slate-200 object-contain bg-white p-2" />
-      <div className="animate-pulse text-xl md:text-2xl mb-4">Cargando v3.6...</div>
-      {errorInfo && <div className="bg-red-50 text-red-600 p-4 md:p-6 rounded-3xl border border-red-100 text-sm md:text-base font-bold max-w-sm shadow-sm">{errorInfo}</div>}
+      {/* ⚠️ BLINDAJE DEL LOGO: Tamaño físico fijo para evitar pantallazo gigante */}
+      <img 
+        src="/logo.jpeg" 
+        alt="Logo" 
+        style={{ width: '120px', height: '120px', objectFit: 'contain' }} 
+        className="mb-6 animate-bounce rounded-3xl shadow-lg border border-slate-200 bg-white p-2" 
+      />
+      <div className="animate-pulse text-xl md:text-2xl mb-4">Cargando v3.8...</div>
+      {errorInfo && (
+        <div className="bg-red-50 text-red-600 p-4 md:p-6 rounded-3xl border border-red-100 text-sm md:text-base font-bold max-w-sm shadow-sm">
+          {errorInfo}
+        </div>
+      )}
     </div>
   );
 
+  // ─── PANTALLA PRINCIPAL ──────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#f8fafc] p-2 sm:p-4 md:p-6 pb-24 font-sans text-slate-900">
       <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6">
@@ -365,18 +401,23 @@ export default function App() {
         {/* HEADER ADAPTATIVO CON LOGO */}
         <header className="bg-white p-4 md:px-10 md:py-8 rounded-3xl md:rounded-[2.5rem] shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6">
           <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto">
-            {/* CONTENEDOR DEL LOGO EN LA CABECERA */}
-            <div className="w-16 h-16 md:w-24 md:h-24 shrink-0 bg-white rounded-xl md:rounded-2xl border border-slate-100 shadow-sm flex items-center justify-center overflow-hidden p-1.5">
+            {/* ⚠️ BLINDAJE DEL LOGO EN EL HEADER */}
+            <div 
+              className="shrink-0 bg-white rounded-xl md:rounded-2xl border border-slate-100 shadow-sm flex items-center justify-center overflow-hidden p-1.5" 
+              style={{ width: '80px', height: '80px' }}
+            >
               <img src="/logo.jpeg" alt="Traditional Dishes" className="w-full h-full object-contain" />
             </div>
             <div className="flex-1">
               <h1 className="text-xl sm:text-2xl md:text-4xl font-black tracking-tighter italic text-slate-900 flex items-center flex-wrap gap-2">
                 RETO VERANO 
                 <span className="text-[9px] md:text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 md:px-3 md:py-1 rounded-full not-italic tracking-normal font-bold uppercase shrink-0">
-                  PRO v3.6
+                  PRO v3.8
                 </span>
               </h1>
-              <p className="text-slate-400 font-bold text-xs md:text-sm tracking-tight mt-0.5 md:mt-1">16 Semanas de Transformación</p>
+              <p className="text-slate-400 font-bold text-xs md:text-sm tracking-tight mt-0.5 md:mt-1">
+                16 Semanas de Transformación
+              </p>
             </div>
           </div>
           
@@ -387,22 +428,25 @@ export default function App() {
                 key={tab.id} 
                 onClick={()=>setActiveTab(tab.id)} 
                 className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 px-1 py-2 md:px-6 md:py-3.5 rounded-xl transition-all ${
-                  activeTab === tab.id 
-                    ? 'bg-white text-emerald-600 shadow-md scale-[1.02]' 
-                    : 'text-slate-400 hover:text-slate-600'
+                  activeTab === tab.id ? 'bg-white text-emerald-600 shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600'
                 }`}
               >
                 <span className="text-base md:text-sm">{tab.icon}</span>
-                <span className="text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-tight md:tracking-widest">{tab.label}</span>
+                <span className="text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-tight md:tracking-widest">
+                  {tab.label}
+                </span>
               </button>
             ))}
           </div>
         </header>
 
-        {/* TAB 1: REGISTRO DE DATOS */}
+        {/* ─── TAB 1: REGISTRO DE DATOS ─── */}
         {activeTab === 'data' && (
           <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <button onClick={()=> { setForm({name:'', gender:'M', age:'', height:''}); setModalState({isOpen:true, type:'add'}); }} className="w-full md:w-auto justify-center bg-emerald-600 text-white px-6 py-4 md:px-10 md:py-5 rounded-2xl md:rounded-[2rem] font-black shadow-xl shadow-emerald-200 hover:bg-emerald-700 hover:shadow-emerald-300 hover:-translate-y-1 transition-all text-xs md:text-sm uppercase tracking-widest flex items-center gap-2 md:gap-3">
+            <button 
+              onClick={()=> { setForm({name:'', gender:'M', age:'', height:''}); setModalState({isOpen:true, type:'add'}); }} 
+              className="w-full md:w-auto justify-center bg-emerald-600 text-white px-6 py-4 md:px-10 md:py-5 rounded-2xl md:rounded-[2rem] font-black shadow-xl shadow-emerald-200 hover:bg-emerald-700 hover:shadow-emerald-300 hover:-translate-y-1 transition-all text-xs md:text-sm uppercase tracking-widest flex items-center gap-2 md:gap-3"
+            >
               <span className="text-lg md:text-xl">+</span> AÑADIR JUGADOR
             </button>
             
@@ -416,12 +460,14 @@ export default function App() {
                       </th>
                       {Array.from({length:16}).map((_,i)=>(
                         <th key={i} className={`p-2 md:p-4 border-l border-slate-200 min-w-[280px] md:min-w-[350px] ${(i+1)%4===0?'bg-emerald-50/50':''}`}>
-                          <div className="text-slate-800 text-xs md:text-sm mb-2 md:mb-3 font-black uppercase italic tracking-tight">Semana {i+1} {(i+1)%4===0?'🏆':''}</div>
+                          <div className="text-slate-800 text-xs md:text-sm mb-2 md:mb-3 font-black uppercase italic tracking-tight">
+                            Semana {i+1} {(i+1)%4===0?'🏆':''}
+                          </div>
                           <div className="flex gap-1 md:gap-2 font-black text-[9px] md:text-xs tracking-tight text-slate-700">
                             <span className="flex-1 text-center bg-slate-200/70 py-1 md:py-1.5 rounded-md">Kg</span>
                             <span className="flex-1 text-center bg-slate-200/70 py-1 md:py-1.5 rounded-md">Cuello</span>
                             <span className="flex-1 text-center bg-slate-200/70 py-1 md:py-1.5 rounded-md">Cint</span>
-                            <span className="flex-1 text-center bg-slate-200/70 py-1 md:py-1.5 rounded-md">Cadera</span>
+                            <span className="flex-1 text-center bg-slate-200/70 py-1 md:py-1.5 rounded-md">Cad</span>
                             <span className="flex-1 text-emerald-800 text-center bg-emerald-200 py-1 md:py-1.5 rounded-md">Grasa %</span>
                           </div>
                         </th>
@@ -433,7 +479,10 @@ export default function App() {
                       <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50 group transition-colors">
                         <td className="p-3 md:p-6 sticky left-0 bg-white group-hover:bg-slate-50 z-10 transition-colors border-r border-slate-50">
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-1 md:gap-0">
-                            <div onClick={()=> { setForm({name:p.name, gender:p.gender, age:p.age, height:p.height}); setModalState({isOpen:true, type:'edit', data:{docId:p.docId, ...p}}); }} className="cursor-pointer font-black">
+                            <div 
+                              onClick={()=> { setForm({name:p.name, gender:p.gender, age:p.age, height:p.height}); setModalState({isOpen:true, type:'edit', data:{docId:p.docId, ...p}}); }} 
+                              className="cursor-pointer font-black"
+                            >
                               <div className="font-black text-sm sm:text-base md:text-xl flex items-center gap-2 md:gap-3 tracking-tighter hover:text-emerald-600 transition-colors text-slate-900 truncate">
                                 <div className="w-3 h-3 md:w-4 md:h-4 rounded-full shadow-sm border border-black/10 shrink-0" style={{background:p.color}}></div>
                                 <span className="truncate">{p.name}</span>
@@ -444,13 +493,20 @@ export default function App() {
                                 <span className="hidden md:inline">• </span>{p.age} años
                               </div>
                             </div>
-                            <button onClick={()=>setModalState({isOpen:true, type:'delete', data:{docId:p.docId, playerName:p.name}})} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all bg-white hover:bg-red-50 p-1.5 md:p-2 rounded-full shadow-sm self-start md:self-auto hidden md:block">🗑️</button>
+                            <button 
+                              onClick={()=>setModalState({isOpen:true, type:'delete', data:{docId:p.docId, playerName:p.name}})} 
+                              className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all bg-white hover:bg-red-50 p-1.5 md:p-2 rounded-full shadow-sm self-start md:self-auto hidden md:block"
+                            >
+                              🗑️
+                            </button>
                           </div>
                         </td>
                         {Array.from({length:16}).map((_,i)=>{
-                          const wNum = i+1; const hito = wNum%4===0;
+                          const wNum = i+1; 
+                          const hito = wNum%4===0;
                           const wData = p.weeklyData?.find(w=>w.week === wNum) || {};
                           const bfp = calculateBFP(p.gender, p.height, wData.neck, wData.waist, wData.hip);
+                          
                           return (
                             <td key={i} className={`p-2 md:p-4 border-l border-slate-200 align-middle ${hito?'bg-emerald-50/30':''}`}>
                               <div className="flex flex-col gap-2 md:gap-4 min-h-[80px] md:min-h-[100px] justify-center">
@@ -458,12 +514,12 @@ export default function App() {
                                   {['weight','neck','waist','hip'].map(f => {
                                     const isDisabled = f === 'hip' && p.gender === 'M';
                                     return (
-                                      <WeekInput
-                                        key={`${p.id}-${wNum}-${f}`}
-                                        value={wData[f]}
-                                        disabled={isDisabled}
-                                        onSave={(val) => handleDataChange(p, wNum, f, val)}
-                                        className={`flex-1 w-0 p-1.5 md:p-2.5 text-center text-xs md:text-sm font-black text-slate-900 rounded-lg md:rounded-xl outline-none border md:border-2 border-slate-200 focus:border-emerald-500 focus:bg-white focus:shadow-md transition-all shadow-sm placeholder:text-slate-300 ${isDisabled ? 'bg-slate-200 opacity-40 cursor-not-allowed' : 'bg-slate-50 hover:bg-white'}`}
+                                      <WeekInput 
+                                        key={`${p.id}-${wNum}-${f}`} 
+                                        value={wData[f]} 
+                                        disabled={isDisabled} 
+                                        onSave={(val) => handleDataChange(p, wNum, f, val)} 
+                                        className={`flex-1 w-0 p-1.5 md:p-2.5 text-center text-xs md:text-sm font-black text-slate-900 rounded-lg md:rounded-xl outline-none border md:border-2 border-slate-200 focus:border-emerald-500 focus:bg-white focus:shadow-md transition-all shadow-sm placeholder:text-slate-300 ${isDisabled ? 'bg-slate-200 opacity-40 cursor-not-allowed' : 'bg-slate-50 hover:bg-white'}`} 
                                       />
                                     );
                                   })}
@@ -479,11 +535,11 @@ export default function App() {
                                         <span className="text-[9px] md:text-xs text-center text-emerald-400 font-black pt-1 md:pt-2 uppercase tracking-widest">
                                           {f === 'arm' ? '💪 Brazo' : '👕 Pecho'}
                                         </span>
-                                        <WeekInput
-                                          key={`${p.id}-${wNum}-${f}`}
-                                          value={wData[f]}
-                                          onSave={(val) => handleDataChange(p, wNum, f, val)}
-                                          className="p-1.5 md:p-2 w-full bg-slate-800 text-white text-center text-xs md:text-sm font-black outline-none"
+                                        <WeekInput 
+                                          key={`${p.id}-${wNum}-${f}`} 
+                                          value={wData[f]} 
+                                          onSave={(val) => handleDataChange(p, wNum, f, val)} 
+                                          className="p-1.5 md:p-2 w-full bg-slate-800 text-white text-center text-xs md:text-sm font-black outline-none" 
                                         />
                                       </div>
                                     ))}
@@ -502,7 +558,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 2: GRÁFICAS */}
+        {/* ─── TAB 2: GRÁFICAS ─── */}
         {activeTab === 'graphs' && (
           <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-white rounded-3xl md:rounded-[2.5rem] p-5 md:p-8 border border-slate-200 shadow-sm flex flex-col gap-4 md:gap-6">
@@ -514,17 +570,14 @@ export default function App() {
                 {participants.map(p => {
                   const isSelected = highlightedUser === p.id;
                   const isDimmed = highlightedUser !== null && !isSelected;
-                  
                   return (
                     <button 
                       key={p.id} 
-                      onClick={() => setHighlightedUser(isSelected ? null : p.id)}
+                      onClick={() => setHighlightedUser(isSelected ? null : p.id)} 
                       className={`flex items-center gap-1.5 md:gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full border transition-all ${
-                        isSelected 
-                          ? 'bg-white shadow-md border-slate-300 scale-105 ring-2 ring-slate-100' 
-                          : isDimmed 
-                            ? 'bg-slate-50 border-slate-100 opacity-40 grayscale hover:opacity-100 hover:grayscale-0'
-                            : 'bg-slate-50 border-slate-200 hover:bg-white hover:shadow-sm'
+                        isSelected ? 'bg-white shadow-md border-slate-300 scale-105 ring-2 ring-slate-100' : 
+                        isDimmed ? 'bg-slate-50 border-slate-100 opacity-40 grayscale hover:opacity-100 hover:grayscale-0' : 
+                        'bg-slate-50 border-slate-200 hover:bg-white hover:shadow-sm'
                       }`}
                     >
                       <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full shadow-sm" style={{background: p.color}}></span>
@@ -532,7 +585,6 @@ export default function App() {
                     </button>
                   );
                 })}
-                {participants.length === 0 && <span className="text-slate-400 italic text-xs md:text-sm font-bold">Añade jugadores para ver la leyenda.</span>}
               </div>
             </div>
 
@@ -545,7 +597,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3: RANKING */}
+        {/* ─── TAB 3: RANKING ─── */}
         {activeTab === 'ranking' && (
           <div className="bg-white rounded-3xl md:rounded-[3rem] p-4 md:p-10 border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 md:mb-10 gap-3 md:gap-4 p-2 md:p-0">
@@ -569,23 +621,19 @@ export default function App() {
                   {rankingData.map((r,i) => {
                     const pesoVisual = Math.min((r.wLoss / 10) * 100, 100);
                     const grasaVisual = Math.min((r.fLoss / 10) * 100, 100);
-                    
                     return (
                       <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50 transition-all group font-black text-slate-900">
                         <td className="p-3 md:p-6 text-2xl md:text-5xl font-black italic text-slate-300 group-hover:text-emerald-400 transition-colors">
                           {i===0?'🥇':i===1?'🥈':i===2?'🥉': `#${i+1}`}
                         </td>
-                        
                         <td className="p-3 md:p-6">
                           <div className="flex items-center gap-2 md:gap-4 font-black text-base md:text-2xl tracking-tighter text-slate-900">
                             <span className="w-3 h-3 md:w-5 md:h-5 rounded-full shadow-md border border-black/10 shrink-0" style={{background:r.color}}></span>
                             <span className="truncate max-w-[100px] md:max-w-none">{r.name}</span>
                           </div>
                         </td>
-                        
                         <td className="p-3 md:p-6">
                           <div className="flex flex-col gap-2 md:gap-4 py-1 md:py-2">
-                            {/* BARRA PESO */}
                             <div className="flex items-center gap-2 md:gap-3">
                               <span className="text-[9px] md:text-xs font-black text-blue-600 w-10 md:w-14 text-center uppercase tracking-widest bg-blue-50 px-1 py-0.5 md:py-1 rounded shrink-0">Peso</span>
                               <span className="text-xs md:text-sm font-black text-slate-500 w-10 md:w-12 text-left shrink-0">- {r.wLoss.toFixed(1)}</span>
@@ -593,7 +641,6 @@ export default function App() {
                                 <div className="h-full bg-blue-500 rounded-full transition-all duration-1000" style={{width: `${pesoVisual}%`}}></div>
                               </div>
                             </div>
-                            {/* BARRA GRASA */}
                             <div className="flex items-center gap-2 md:gap-3">
                               <span className="text-[9px] md:text-xs font-black text-emerald-600 w-10 md:w-14 text-center uppercase tracking-widest bg-emerald-50 px-1 py-0.5 md:py-1 rounded shrink-0">Grasa</span>
                               <span className="text-xs md:text-sm font-black text-slate-500 w-10 md:w-12 text-left shrink-0">- {r.fLoss.toFixed(1)}</span>
@@ -603,14 +650,12 @@ export default function App() {
                             </div>
                           </div>
                         </td>
-                        
                         <td className="p-3 md:p-6 text-center">
                           <div className="inline-flex items-center justify-center gap-1 md:gap-2 bg-orange-50 text-orange-600 px-2 py-1 md:px-4 md:py-2 rounded-xl md:rounded-2xl border border-orange-200 shadow-sm whitespace-nowrap">
-                            <span className="text-sm md:text-lg">🔥</span> 
+                            <span className="text-sm md:text-lg">🔥</span>
                             <span className="text-xs md:text-base">{r.rMax} sem</span>
                           </div>
                         </td>
-                        
                         <td className="p-3 md:p-6 text-right">
                           <div className="text-2xl md:text-5xl font-black text-slate-900 tracking-tighter tabular-nums drop-shadow-sm whitespace-nowrap">
                             {r.score} <span className="text-[10px] md:text-base opacity-40 uppercase tracking-widest font-bold ml-0.5 md:ml-1 align-middle">pts</span>
@@ -621,14 +666,8 @@ export default function App() {
                   })}
                 </tbody>
               </table>
-              {rankingData.length === 0 && (
-                <div className="p-6 md:p-10 text-center text-slate-400 italic tracking-tight text-sm md:text-lg">
-                  Se necesitan al menos 2 semanas de datos para que comience la competición.
-                </div>
-              )}
             </div>
 
-            {/* EXPLICACIÓN PUNTUACIÓN */}
             <div className="mt-6 md:mt-8 p-4 md:p-6 bg-slate-50 rounded-2xl border border-slate-100">
               <h4 className="text-[10px] md:text-xs font-black text-slate-700 uppercase tracking-widest mb-3 md:mb-4 flex items-center gap-2">
                 <span className="text-base md:text-lg">ℹ️</span> Sistema de Puntuación
@@ -644,16 +683,15 @@ export default function App() {
                 </div>
                 <div className="flex items-start gap-2 md:gap-3">
                   <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-orange-500 mt-1 shrink-0 shadow-sm"></span>
-                  <p><span className="text-slate-700 font-black">Racha:</span> 2 puntos por semana seguida mejorando. Las semanas sin datos no rompen la racha.</p>
+                  <p><span className="text-slate-700 font-black">Racha:</span> 2 pts por semana seguida mejorando. Las semanas sin datos no rompen racha.</p>
                 </div>
               </div>
             </div>
-
           </div>
         )}
       </div>
 
-      {/* MODAL DE EDICIÓN / AÑADIR */}
+      {/* ─── MODAL ─── */}
       {modalState.isOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 w-full max-w-md shadow-2xl border border-white/20 animate-in zoom-in-95 duration-300 font-black mx-2">
@@ -671,7 +709,8 @@ export default function App() {
                   <div className="space-y-1 md:space-y-2">
                     <label className="text-[10px] md:text-xs uppercase tracking-widest text-slate-500 ml-2">Género</label>
                     <select value={form.gender} onChange={e=>setForm({...form, gender: e.target.value})} className="w-full p-4 md:p-5 rounded-xl md:rounded-2xl bg-slate-50 border-2 border-slate-200 font-black outline-none cursor-pointer focus:border-emerald-500 text-slate-900 text-base md:text-lg">
-                      <option value="M">Hombre</option><option value="F">Mujer</option>
+                      <option value="M">Hombre</option>
+                      <option value="F">Mujer</option>
                     </select>
                   </div>
                   <div className="space-y-1 md:space-y-2">
